@@ -1,0 +1,97 @@
+From 8c8357da1b4831335f6ef116e91a644e400ac76e Mon Sep 17 00:00:00 2001
+From: tanze <tanze@kylinos.cn>
+Date: Fri, 29 May 2026 17:02:20 +0800
+Subject: [PATCH] smb: client: implement fileattr_get to support
+ FS_IOC_GETFLAGS
+
+xfstests generic/508 is skipped on cifs with:
+
+  "lsattr not supported by test filesystem type: cifs"
+
+The test calls _require_test_lsattr which runs "lsattr -d" on the test
+directory.  lsattr issues an FS_IOC_GETFLAGS ioctl, which goes through
+vfs_fileattr_get().  Since cifs does not implement the .fileattr_get
+callback in its inode_operations, vfs_fileattr_get() returns
+-ENOIOCTLCMD, which is converted to -ENOTTY ("Inappropriate ioctl for
+device") back to userspace, causing the test to be skipped.
+
+Implement cifs_fileattr_get() and wire it up in both cifs_dir_inode_ops.
+
+Signed-off-by: tanze <tanze@kylinos.cn>
+---
+ fs/smb/client/cifsfs.c |  1 +
+ fs/smb/client/cifsfs.h |  1 +
+ fs/smb/client/inode.c  | 26 ++++++++++++++++++++++++++
+ 3 files changed, 28 insertions(+)
+
+diff --git a/fs/smb/client/cifsfs.c b/fs/smb/client/cifsfs.c
+index ce23924f01b3..75ee4b04dad6 100644
+--- a/fs/smb/client/cifsfs.c
++++ b/fs/smb/client/cifsfs.c
+@@ -1170,6 +1170,7 @@ const struct inode_operations cifs_dir_inode_ops = {
+ 	.atomic_open = cifs_atomic_open,
+ 	.tmpfile = cifs_tmpfile,
+ 	.lookup = cifs_lookup,
++	.fileattr_get = cifs_fileattr_get,
+ 	.getattr = cifs_getattr,
+ 	.unlink = cifs_unlink,
+ 	.link = cifs_hardlink,
+diff --git a/fs/smb/client/cifsfs.h b/fs/smb/client/cifsfs.h
+index c455b15f2778..c2bd952942be 100644
+--- a/fs/smb/client/cifsfs.h
++++ b/fs/smb/client/cifsfs.h
+@@ -77,6 +77,7 @@ int cifs_revalidate_dentry_attr(struct dentry *dentry);
+ int cifs_revalidate_file(struct file *filp);
+ int cifs_revalidate_dentry(struct dentry *dentry);
+ int cifs_revalidate_mapping(struct inode *inode);
++int cifs_fileattr_get(struct dentry *dentry, struct file_kattr *fa);
+ int cifs_zap_mapping(struct inode *inode);
+ int cifs_getattr(struct mnt_idmap *idmap, const struct path *path,
+ 		 struct kstat *stat, u32 request_mask, unsigned int flags);
+diff --git a/fs/smb/client/inode.c b/fs/smb/client/inode.c
+index 9472c0a6c187..78e20a54270c 100644
+--- a/fs/smb/client/inode.c
++++ b/fs/smb/client/inode.c
+@@ -11,6 +11,7 @@
+ #include <linux/slab.h>
+ #include <linux/pagemap.h>
+ #include <linux/freezer.h>
++#include <linux/fileattr.h>
+ #include <linux/sched/signal.h>
+ #include <linux/wait_bit.h>
+ #include <linux/fiemap.h>
+@@ -2892,6 +2893,31 @@ int cifs_revalidate_dentry(struct dentry *dentry)
+ 	return cifs_revalidate_mapping(inode);
+ }
+ 
++int cifs_fileattr_get(struct dentry *dentry, struct file_kattr *fa)
++{
++	struct inode *inode = d_inode(dentry);
++	u32 flags = 0;
++	int rc;
++
++	if (!fa->flags_valid && !fa->fsx_valid)
++		return -EOPNOTSUPP;
++
++	rc = cifs_revalidate_dentry_attr(dentry);
++	if (rc)
++		return rc;
++
++	inode = d_inode(dentry);
++	if (!inode)
++		return -ENOENT;
++
++	if (CIFS_I(inode)->cifsAttrs & FILE_ATTRIBUTE_COMPRESSED)
++		flags |= FS_COMPR_FL;
++
++	fileattr_fill_flags(fa, flags);
++
++	return 0;
++}
++
+ int cifs_getattr(struct mnt_idmap *idmap, const struct path *path,
+ 		 struct kstat *stat, u32 request_mask, unsigned int flags)
+ {
+-- 
+2.43.0
+
