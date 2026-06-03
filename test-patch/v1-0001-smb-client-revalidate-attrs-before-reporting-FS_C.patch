@@ -1,4 +1,4 @@
-From 8399a4188b804fd65d9e1de3ea1471219caa1b50 Mon Sep 17 00:00:00 2001
+From 77b6a1ab67a3fc4150c7a4379defdbfff6d01be0 Mon Sep 17 00:00:00 2001
 From: tanze <tanze@kylinos.cn>
 Date: Wed, 3 Jun 2026 17:13:09 +0800
 Subject: [PATCH v1] smb: client: revalidate attrs before reporting FS_COMPR_FL
@@ -10,14 +10,14 @@ state when attribute revalidation is required.
 
 Signed-off-by: tanze <tanze@kylinos.cn>
 ---
- fs/smb/client/cifsfs.c | 13 +++++++++++++
- 1 file changed, 13 insertions(+)
+ fs/smb/client/cifsfs.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
 diff --git a/fs/smb/client/cifsfs.c b/fs/smb/client/cifsfs.c
-index b14ae3283553..84c77d31af23 100644
+index b14ae3283553..b0331260cfb9 100644
 --- a/fs/smb/client/cifsfs.c
 +++ b/fs/smb/client/cifsfs.c
-@@ -1172,6 +1172,19 @@ int cifs_fileattr_get(struct dentry *dentry, struct file_kattr *fa)
+@@ -1172,6 +1172,20 @@ int cifs_fileattr_get(struct dentry *dentry, struct file_kattr *fa)
  	struct cifs_tcon *tcon = cifs_sb_master_tcon(cifs_sb);
  	struct inode *inode = d_inode(dentry);
  	u32 attrs;
@@ -31,6 +31,7 @@ index b14ae3283553..84c77d31af23 100644
 +	rc = cifs_revalidate_dentry_attr(dentry);
 +	if (rc)
 +		return rc;
++
 +	inode = d_inode(dentry);
 +	if (!inode)
 +		return -ENOENT;
