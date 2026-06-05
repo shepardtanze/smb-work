@@ -1,0 +1,177 @@
+From b94b2e69d133557f345334568670e4e4d4f118a6 Mon Sep 17 00:00:00 2001
+From: tanze <tanze@kylinos.cn>
+Date: Fri, 5 Jun 2026 16:23:28 +0800
+Subject: [PATCH] smb: client: Implement the chattr +i functionality test
+
+Implement the chattr +i functionality; this is currently a test patch.
+---
+ fs/smb/client/cifsfs.c | 49 ++++++++++++++++++++++++++++++++++++++++++
+ fs/smb/client/cifsfs.h |  2 ++
+ fs/smb/client/file.c   | 29 +++++++++++++++++++++++++
+ 3 files changed, 80 insertions(+)
+
+diff --git a/fs/smb/client/cifsfs.c b/fs/smb/client/cifsfs.c
+index b14ae3283553..8c50f05ea92d 100644
+--- a/fs/smb/client/cifsfs.c
++++ b/fs/smb/client/cifsfs.c
+@@ -1176,6 +1176,14 @@ int cifs_fileattr_get(struct dentry *dentry, struct file_kattr *fa)
+ 	/* Preserve FS_COMPR_FL previously reported by cifs_ioctl(). */
+ 	if (CIFS_I(inode)->cifsAttrs & ATTR_COMPRESSED)
+ 		fa->flags |= FS_COMPR_FL;
++	if (IS_IMMUTABLE(inode)) {
++		fa->flags |= FS_IMMUTABLE_FL;
++		fa->fsx_xflags |= FS_XFLAG_IMMUTABLE;
++	}
++	if (IS_APPEND(inode)) {
++		fa->flags |= FS_APPEND_FL;
++		fa->fsx_xflags |= FS_XFLAG_APPEND;
++	}
+ 
+ 	/*
+ 	 * FS_CASEFOLD_FL is defined by UAPI as a folder attribute,
+@@ -1216,6 +1224,45 @@ int cifs_fileattr_get(struct dentry *dentry, struct file_kattr *fa)
+ 	return 0;
+ }
+ 
++int cifs_fileattr_set(struct mnt_idmap *idmap, struct dentry *dentry,
++		      struct file_kattr *fa)
++{
++	struct inode *inode = d_inode(dentry);
++	struct file_kattr cur = {
++		.flags_valid = true,
++		.fsx_valid = fa->fsx_valid,
++	};
++	unsigned int new_flags = 0;
++	int rc;
++
++	/*
++	 * This is intentionally local-only for now. It lets VFS paths
++	 * observe immutable/append semantics before SMB ACL persistence
++	 * is added.
++	 */
++	rc = cifs_fileattr_get(dentry, &cur);
++	if (rc)
++		return rc;
++
++	if (fa->flags_valid) {
++		if ((fa->flags ^ cur.flags) & ~(FS_IMMUTABLE_FL | FS_APPEND_FL))
++			return -EOPNOTSUPP;
++	} else {
++		if ((fa->fsx_xflags ^ cur.fsx_xflags) &
++		    ~(FS_XFLAG_IMMUTABLE | FS_XFLAG_APPEND))
++			return -EOPNOTSUPP;
++	}
++
++	if (fa->flags & FS_IMMUTABLE_FL)
++		new_flags |= S_IMMUTABLE;
++	if (fa->flags & FS_APPEND_FL)
++		new_flags |= S_APPEND;
++
++	inode_set_flags(inode, new_flags, S_IMMUTABLE | S_APPEND);
++	inode_set_ctime_current(inode);
++	return 0;
++}
++
+ const struct inode_operations cifs_dir_inode_ops = {
+ 	.create = cifs_create,
+ 	.atomic_open = cifs_atomic_open,
+@@ -1235,6 +1282,7 @@ const struct inode_operations cifs_dir_inode_ops = {
+ 	.get_acl = cifs_get_acl,
+ 	.set_acl = cifs_set_acl,
+ 	.fileattr_get = cifs_fileattr_get,
++	.fileattr_set = cifs_fileattr_set,
+ };
+ 
+ const struct inode_operations cifs_file_inode_ops = {
+@@ -1246,6 +1294,7 @@ const struct inode_operations cifs_file_inode_ops = {
+ 	.get_acl = cifs_get_acl,
+ 	.set_acl = cifs_set_acl,
+ 	.fileattr_get = cifs_fileattr_get,
++	.fileattr_set = cifs_fileattr_set,
+ };
+ 
+ const char *cifs_get_link(struct dentry *dentry, struct inode *inode,
+diff --git a/fs/smb/client/cifsfs.h b/fs/smb/client/cifsfs.h
+index 9d85224fafab..c93426a8cab6 100644
+--- a/fs/smb/client/cifsfs.h
++++ b/fs/smb/client/cifsfs.h
+@@ -91,6 +91,8 @@ extern const struct inode_operations cifs_namespace_inode_operations;
+ 
+ struct file_kattr;
+ int cifs_fileattr_get(struct dentry *dentry, struct file_kattr *fa);
++int cifs_fileattr_set(struct mnt_idmap *idmap, struct dentry *dentry,
++		      struct file_kattr *fa);
+ 
+ 
+ /* Functions related to files and directories */
+diff --git a/fs/smb/client/file.c b/fs/smb/client/file.c
+index b60344125f27..8e759aabb92c 100644
+--- a/fs/smb/client/file.c
++++ b/fs/smb/client/file.c
+@@ -39,6 +39,17 @@
+ 
+ static int cifs_reopen_file(struct cifsFileInfo *cfile, bool can_flush);
+ 
++static int cifs_check_inode_write_limits(struct kiocb *iocb)
++{
++	struct inode *inode = file_inode(iocb->ki_filp);
++
++	if (IS_IMMUTABLE(inode))
++		return -EPERM;
++	if (IS_APPEND(inode) && !(iocb->ki_flags & IOCB_APPEND))
++		return -EPERM;
++	return 0;
++}
++
+ /*
+  * Prepare a subrequest to upload to the server.  We need to allocate credits
+  * so that we know the maximum amount of data that we can include in it.
+@@ -2897,6 +2908,10 @@ cifs_writev(struct kiocb *iocb, struct iov_iter *from)
+ 	struct cifs_sb_info *cifs_sb = CIFS_SB(inode);
+ 	ssize_t rc;
+ 
++	rc = cifs_check_inode_write_limits(iocb);
++	if (rc)
++		return rc;
++
+ 	rc = netfs_start_io_write(inode);
+ 	if (rc < 0)
+ 		return rc;
+@@ -2939,6 +2954,11 @@ cifs_strict_writev(struct kiocb *iocb, struct iov_iter *from)
+ 						iocb->ki_filp->private_data;
+ 	struct cifs_tcon *tcon = tlink_tcon(cfile->tlink);
+ 	ssize_t written;
++	int rc;
++
++	rc = cifs_check_inode_write_limits(iocb);
++	if (rc)
++		return rc;
+ 
+ 	written = cifs_get_writer(cinode);
+ 	if (written)
+@@ -3001,6 +3021,10 @@ ssize_t cifs_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
+ 	ssize_t written;
+ 	int rc;
+ 
++	rc = cifs_check_inode_write_limits(iocb);
++	if (rc)
++		return rc;
++
+ 	if (iocb->ki_filp->f_flags & O_DIRECT) {
+ 		written = netfs_unbuffered_write_iter(iocb, from);
+ 		if (written > 0 && CIFS_CACHE_READ(cinode)) {
+@@ -3095,6 +3119,11 @@ cifs_strict_readv(struct kiocb *iocb, struct iov_iter *to)
+ 
+ static vm_fault_t cifs_page_mkwrite(struct vm_fault *vmf)
+ {
++	struct inode *inode = file_inode(vmf->vma->vm_file);
++
++	if (IS_IMMUTABLE(inode) || IS_APPEND(inode))
++		return VM_FAULT_SIGBUS;
++
+ 	return netfs_page_mkwrite(vmf, NULL);
+ }
+ 
+-- 
+2.43.0
+
