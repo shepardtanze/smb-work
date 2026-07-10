@@ -1,0 +1,97 @@
+From 2f44d45ff0a13cb6af23d9756244316f38710912 Mon Sep 17 00:00:00 2001
+From: Ze Tan <tanze@kylinos.cn>
+Date: Thu, 9 Jul 2026 16:50:15 +0800
+Subject: [PATCH 5/5] ksmbd: avoid self oplock breaks for EA opens
+
+A client may already hold an oplock on a file and later open the same
+file again from the same SMB session only to read or update EAs or file
+metadata. One common case is the CIFS client clearing
+security.capability during write-side killpriv handling.
+
+Such an EA-only reopen does not need to break the caching state held by
+the same session. Breaking it can make the client wait on an oplock
+break response from itself and can block progress.
+
+Skip the oplock break only for same-session opens that request no oplock,
+do not carry a lease context, and request only EA/metadata related access
+rights. Still require share mode checks to have succeeded, and do not
+skip the break if another session holds an active oplock.
+
+This keeps normal cross-session oplock conflict handling unchanged while
+avoiding self-induced oplock breaks for internal EA operations.
+
+Signed-off-by: Ze Tan <tanze@kylinos.cn>
+---
+ fs/smb/server/oplock.c | 49 ++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 49 insertions(+)
+
+diff --git a/fs/smb/server/oplock.c b/fs/smb/server/oplock.c
+index 31dd9f3479b2..1112e7692031 100644
+--- a/fs/smb/server/oplock.c
++++ b/fs/smb/server/oplock.c
+@@ -1364,6 +1364,49 @@ void smb_lazy_parent_lease_break_close(struct ksmbd_file *fp)
+ 	ksmbd_inode_put(p_ci);
+ }
+ 
++static bool ksmbd_skip_session_ea_break(struct ksmbd_work *work,
++					struct ksmbd_file *fp,
++					int req_op_level,
++					struct lease_ctx_info *lctx)
++{
++	struct oplock_info *opinfo;
++	bool same_session = false;
++	bool foreign_session = false;
++	__le32 ea_meta_mask = FILE_READ_EA_LE | FILE_WRITE_EA_LE |
++			      FILE_READ_ATTRIBUTES_LE |
++			      FILE_WRITE_ATTRIBUTES_LE |
++			      FILE_READ_CONTROL_LE | FILE_SYNCHRONIZE_LE;
++
++	if (!work || !fp || lctx || req_op_level != SMB2_OPLOCK_LEVEL_NONE)
++		return false;
++
++	/*
++	 * Avoid self-deadlock when the same session reopens the file only
++	 * to read/write EAs or metadata, e.g. CIFS killpriv querying or
++	 * removing security.capability during buffered write.
++	 */
++	if (!(fp->daccess & (FILE_READ_EA_LE | FILE_WRITE_EA_LE)) ||
++	    (fp->daccess & ~ea_meta_mask))
++		return false;
++
++	down_read(&fp->f_ci->m_lock);
++	list_for_each_entry(opinfo, &fp->f_ci->m_op_list, op_entry) {
++		if (!opinfo->conn || opinfo->level == SMB2_OPLOCK_LEVEL_NONE)
++			continue;
++
++		if (opinfo->sess == work->sess)
++			same_session = true;
++		else
++			foreign_session = true;
++
++		if (same_session && foreign_session)
++			break;
++	}
++	up_read(&fp->f_ci->m_lock);
++
++	return same_session && !foreign_session;
++}
++
+ /**
+  * smb_grant_oplock() - handle oplock/lease request on file open
+  * @work:		smb work
+@@ -1468,6 +1511,12 @@ int smb_grant_oplock(struct ksmbd_work *work, int req_op_level, u64 pid,
+ 		goto err_out;
+ 	}
+ 
++	if (share_ret >= 0 &&
++	    ksmbd_skip_session_ea_break(work, fp, req_op_level, lctx)) {
++		opinfo_put(prev_opinfo);
++		goto set_lev;
++	}
++
+ 	if (prev_opinfo->level != SMB2_OPLOCK_LEVEL_BATCH &&
+ 	    prev_opinfo->level != SMB2_OPLOCK_LEVEL_EXCLUSIVE) {
+ 		opinfo_put(prev_opinfo);
+-- 
+2.43.0
+

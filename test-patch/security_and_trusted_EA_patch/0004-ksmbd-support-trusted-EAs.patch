@@ -1,0 +1,77 @@
+From a8f4848807a0bea19d20a5551e35860dfafa9885 Mon Sep 17 00:00:00 2001
+From: Ze Tan <tanze@kylinos.cn>
+Date: Thu, 9 Jul 2026 16:49:32 +0800
+Subject: [PATCH 4/5] ksmbd: support trusted EAs
+
+Extend the POSIX EA mapping added for security.capability to trusted.*
+xattrs. When SMB3 POSIX extensions are negotiated, trusted.* EA names
+are mapped directly to Linux trusted.* xattrs instead of being stored
+under user.*.
+
+Do not expose or allow clients to set filesystem-internal POSIX ACL
+xattrs through this path. Filter the generic system.posix_acl_access and
+system.posix_acl_default names, and keep filtering the XFS
+trusted.SGI_ACL_FILE and trusted.SGI_ACL_DEFAULT aliases.
+
+This lets POSIX-capable clients use trusted xattrs while avoiding leakage
+or modification of internal ACL storage through SMB EA operations.
+
+Signed-off-by: Ze Tan <tanze@kylinos.cn>
+---
+ fs/smb/server/smb2pdu.c | 32 ++++++++++++++++++++++++++++++--
+ 1 file changed, 30 insertions(+), 2 deletions(-)
+
+diff --git a/fs/smb/server/smb2pdu.c b/fs/smb/server/smb2pdu.c
+index ba6eae704317..600fce1fbfcf 100644
+--- a/fs/smb/server/smb2pdu.c
++++ b/fs/smb/server/smb2pdu.c
+@@ -2555,16 +2555,44 @@ static noinline int create_smb2_pipe(struct ksmbd_work *work)
+ 	return err;
+ }
+ 
++static bool ksmbd_is_internal_acl_ea_name(const char *name, size_t name_len)
++{
++	return (name_len == sizeof(XATTR_NAME_POSIX_ACL_ACCESS) - 1 &&
++		!strncmp(name, XATTR_NAME_POSIX_ACL_ACCESS, name_len)) ||
++	       (name_len == sizeof(XATTR_NAME_POSIX_ACL_DEFAULT) - 1 &&
++		!strncmp(name, XATTR_NAME_POSIX_ACL_DEFAULT, name_len)) ||
++	       (name_len == sizeof(XATTR_TRUSTED_PREFIX "SGI_ACL_FILE") - 1 &&
++		!strncmp(name, XATTR_TRUSTED_PREFIX "SGI_ACL_FILE", name_len)) ||
++	       (name_len == sizeof(XATTR_TRUSTED_PREFIX "SGI_ACL_DEFAULT") - 1 &&
++		!strncmp(name, XATTR_TRUSTED_PREFIX "SGI_ACL_DEFAULT",
++			 name_len));
++}
++
+ static bool ksmbd_is_posix_ea_name(const char *name, size_t name_len)
+ {
+-	return name_len == sizeof(XATTR_NAME_CAPS) - 1 &&
+-	       !strncmp(name, XATTR_NAME_CAPS, name_len);
++	if (name_len == sizeof(XATTR_NAME_CAPS) - 1 &&
++	    !strncmp(name, XATTR_NAME_CAPS, name_len))
++		return true;
++
++	/*
++	 * POSIX ACL xattrs are filesystem-internal ACL records, not
++	 * user-visible EAs.  XFS may also expose trusted.SGI_ACL_* aliases
++	 * through listxattr(), so filter those as well.
++	 */
++	if (ksmbd_is_internal_acl_ea_name(name, name_len))
++		return false;
++
++	return name_len > XATTR_TRUSTED_PREFIX_LEN &&
++	       !strncmp(name, XATTR_TRUSTED_PREFIX, XATTR_TRUSTED_PREFIX_LEN);
+ }
+ 
+ static int ksmbd_map_ea_name_to_xattr(bool posix_extensions,
+ 				      const char *ea_name, size_t ea_name_len,
+ 				      char *attr_name)
+ {
++	if (ksmbd_is_internal_acl_ea_name(ea_name, ea_name_len))
++		return -EINVAL;
++
+ 	if (posix_extensions &&
+ 	    ksmbd_is_posix_ea_name(ea_name, ea_name_len)) {
+ 		if (ea_name_len > XATTR_NAME_MAX)
+-- 
+2.43.0
+
