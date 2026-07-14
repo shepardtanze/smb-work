@@ -1,4 +1,4 @@
-From b89c6c6ec2a8ff4c79a1514ada4bf9e551666aa7 Mon Sep 17 00:00:00 2001
+From 22ab10d0588404b73257649d7297c233ab0e97cf Mon Sep 17 00:00:00 2001
 From: Ze Tan <tanze@kylinos.cn>
 Date: Tue, 14 Jul 2026 16:38:42 +0800
 Subject: [PATCH 2/9] smb: client: support security.xfstests over EAs

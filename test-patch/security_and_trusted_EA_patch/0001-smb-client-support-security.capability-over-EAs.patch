@@ -1,4 +1,4 @@
-From e2ebd5b186a6f932a594e6ba0d27a4662033fad3 Mon Sep 17 00:00:00 2001
+From 8964107d1597b62a929f093a91945bf32fa0e28a Mon Sep 17 00:00:00 2001
 From: Ze Tan <tanze@kylinos.cn>
 Date: Tue, 14 Jul 2026 16:38:42 +0800
 Subject: [PATCH 1/9] smb: client: support security.capability over EAs

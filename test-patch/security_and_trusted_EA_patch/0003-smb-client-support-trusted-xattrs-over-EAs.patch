@@ -1,4 +1,4 @@
-From 2db220a6650af1d77c99888a1edcfbd187fe4096 Mon Sep 17 00:00:00 2001
+From e313a2d201f7350320662110bac7639838bc8b04 Mon Sep 17 00:00:00 2001
 From: Ze Tan <tanze@kylinos.cn>
 Date: Tue, 14 Jul 2026 16:38:43 +0800
 Subject: [PATCH 3/9] smb: client: support trusted xattrs over EAs

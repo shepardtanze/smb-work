@@ -1,4 +1,4 @@
-From 6bc3caed8779e725890d0ebc8e2af9f77215c20f Mon Sep 17 00:00:00 2001
+From e7ed4d0d83f8e83fc39eb6e9cb7ff7f159eb9629 Mon Sep 17 00:00:00 2001
 From: Ze Tan <tanze@kylinos.cn>
 Date: Tue, 14 Jul 2026 16:38:44 +0800
 Subject: [PATCH 8/9] ksmbd: support trusted EAs
@@ -16,11 +16,11 @@ Signed-off-by: Ze Tan <tanze@kylinos.cn>
  1 file changed, 28 insertions(+)
 
 diff --git a/fs/smb/server/smb2pdu.c b/fs/smb/server/smb2pdu.c
-index cd6f27bc223a..08df3cf91e56 100644
+index ea622798f34e..649aa9f484b7 100644
 --- a/fs/smb/server/smb2pdu.c
 +++ b/fs/smb/server/smb2pdu.c
-@@ -2555,6 +2555,19 @@ static noinline int create_smb2_pipe(struct ksmbd_work *work)
- 	return err;
+@@ -2734,6 +2734,19 @@ static bool smb2_is_private_ea(const char *name, size_t name_len)
+ 	return false;
  }
  
 +static bool ksmbd_is_internal_acl_ea_name(const char *name, size_t name_len)
@@ -39,7 +39,7 @@ index cd6f27bc223a..08df3cf91e56 100644
  static bool ksmbd_is_security_capability_ea_name(const char *name,
  						 size_t name_len)
  {
-@@ -2577,6 +2590,18 @@ static bool ksmbd_is_posix_ea_name(const char *name, size_t name_len)
+@@ -2756,6 +2769,18 @@ static bool ksmbd_is_posix_ea_name(const char *name, size_t name_len)
  	if (ksmbd_is_security_xfstests_ea_name(name, name_len))
  		return true;
  
@@ -58,7 +58,7 @@ index cd6f27bc223a..08df3cf91e56 100644
  	return false;
  }
  
-@@ -2584,6 +2609,9 @@ static int ksmbd_map_ea_name_to_xattr(bool posix_extensions,
+@@ -2763,6 +2788,9 @@ static int ksmbd_map_ea_name_to_xattr(bool posix_extensions,
  				      const char *ea_name, size_t ea_name_len,
  				      char *attr_name)
  {
