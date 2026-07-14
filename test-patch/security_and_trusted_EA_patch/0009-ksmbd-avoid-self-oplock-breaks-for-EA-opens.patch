@@ -1,24 +1,15 @@
-From 2f44d45ff0a13cb6af23d9756244316f38710912 Mon Sep 17 00:00:00 2001
+From 50a9b9f7615b938925471c8ebd4976789d2ef2b2 Mon Sep 17 00:00:00 2001
 From: Ze Tan <tanze@kylinos.cn>
-Date: Thu, 9 Jul 2026 16:50:15 +0800
-Subject: [PATCH 5/5] ksmbd: avoid self oplock breaks for EA opens
+Date: Tue, 14 Jul 2026 16:38:45 +0800
+Subject: [PATCH 9/9] ksmbd: avoid self oplock breaks for EA opens
 
-A client may already hold an oplock on a file and later open the same
-file again from the same SMB session only to read or update EAs or file
-metadata. One common case is the CIFS client clearing
-security.capability during write-side killpriv handling.
+generic/093 writes to a file after setcap sets security.capability. The
+CIFS client can reopen the file to query or update EAs while the same
+session holds an oplock. ksmbd breaks this oplock and waits for the same
+client, so the write can block.
 
-Such an EA-only reopen does not need to break the caching state held by
-the same session. Breaking it can make the client wait on an oplock
-break response from itself and can block progress.
-
-Skip the oplock break only for same-session opens that request no oplock,
-do not carry a lease context, and request only EA/metadata related access
-rights. Still require share mode checks to have succeeded, and do not
-skip the break if another session holds an active oplock.
-
-This keeps normal cross-session oplock conflict handling unchanged while
-avoiding self-induced oplock breaks for internal EA operations.
+Skip the oplock break for same-session EA or metadata opens. Keep the
+normal break when another session holds an oplock.
 
 Signed-off-by: Ze Tan <tanze@kylinos.cn>
 ---
