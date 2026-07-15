@@ -1,7 +1,7 @@
-From 947d577720c87a0e98c462afd28be0611d1bb814 Mon Sep 17 00:00:00 2001
+From c2f685dc0b02c9f242b37cf2bf6b0830d6183dfc Mon Sep 17 00:00:00 2001
 From: Ze Tan <tanze@kylinos.cn>
 Date: Tue, 14 Jul 2026 16:38:43 +0800
-Subject: [PATCH 4/9] ksmbd: extract SMB EA backing xattr name mapping
+Subject: [RFC PATCH 4/9] ksmbd: extract SMB EA backing xattr name mapping
 
 smb2_set_ea() directly adds the user prefix when it builds the backing
 xattr name. This mixes name conversion with the set operation.

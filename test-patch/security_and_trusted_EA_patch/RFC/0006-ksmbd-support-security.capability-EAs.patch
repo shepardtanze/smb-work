@@ -1,7 +1,7 @@
-From 7a073077a70866f37105edbd9c497f4db7b8fd7b Mon Sep 17 00:00:00 2001
+From 1887ead6fb7ed7ade4651c25656fce659674a705 Mon Sep 17 00:00:00 2001
 From: Ze Tan <tanze@kylinos.cn>
 Date: Tue, 14 Jul 2026 16:38:44 +0800
-Subject: [PATCH 6/9] ksmbd: support security.capability EAs
+Subject: [RFC PATCH 6/9] ksmbd: support security.capability EAs
 
 generic/093 uses setcap and getcap to check that a write clears the file
 capability. ksmbd adds the user prefix to every SMB EA name, so setcap

@@ -1,7 +1,7 @@
-From deadf96a6a1609e41339e3ff01ce5280a45dee8d Mon Sep 17 00:00:00 2001
+From 41f494411fddc3d11e4c9f92e0de62be0305e0f6 Mon Sep 17 00:00:00 2001
 From: Ze Tan <tanze@kylinos.cn>
 Date: Tue, 14 Jul 2026 16:38:43 +0800
-Subject: [PATCH 5/9] ksmbd: extract SMB EA response name handling
+Subject: [RFC PATCH 5/9] ksmbd: extract SMB EA response name handling
 
 smb2_get_ea() directly checks the user namespace, filters internal EAs,
 and removes the user prefix.

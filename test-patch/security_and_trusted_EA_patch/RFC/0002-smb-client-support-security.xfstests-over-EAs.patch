@@ -1,7 +1,7 @@
-From 22ab10d0588404b73257649d7297c233ab0e97cf Mon Sep 17 00:00:00 2001
+From 76b2c773216f7daa4b9d262796bbe009edb2b3f9 Mon Sep 17 00:00:00 2001
 From: Ze Tan <tanze@kylinos.cn>
 Date: Tue, 14 Jul 2026 16:38:42 +0800
-Subject: [PATCH 2/9] smb: client: support security.xfstests over EAs
+Subject: [RFC PATCH 2/9] smb: client: support security.xfstests over EAs
 
 Before checking file capabilities, generic/093 calls _require_attrs
 security. This helper runs "setfattr -n security.xfstests" to check the
@@ -18,10 +18,10 @@ Signed-off-by: Ze Tan <tanze@kylinos.cn>
  2 files changed, 8 insertions(+), 3 deletions(-)
 
 diff --git a/fs/smb/client/smb2ops.c b/fs/smb/client/smb2ops.c
-index 2a8ebf4603f1..5678ce2c3127 100644
+index d58185f676a4..bfa089511b9b 100644
 --- a/fs/smb/client/smb2ops.c
 +++ b/fs/smb/client/smb2ops.c
-@@ -1049,6 +1049,10 @@ static bool cifs_passthrough(const char *name, size_t name_len)
+@@ -1050,6 +1050,10 @@ static bool cifs_passthrough(const char *name, size_t name_len)
  	    !memcmp(name, XATTR_NAME_CAPS, name_len))
  		return true;
  

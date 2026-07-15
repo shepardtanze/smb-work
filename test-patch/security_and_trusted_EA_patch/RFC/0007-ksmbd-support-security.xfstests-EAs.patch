@@ -1,7 +1,7 @@
-From 1487dfc87a510b8166f96767117e1db93165314a Mon Sep 17 00:00:00 2001
+From d708c0e808715a8962109afc5627a7ceae00397a Mon Sep 17 00:00:00 2001
 From: Ze Tan <tanze@kylinos.cn>
 Date: Tue, 14 Jul 2026 16:38:44 +0800
-Subject: [PATCH 7/9] ksmbd: support security.xfstests EAs
+Subject: [RFC PATCH 7/9] ksmbd: support security.xfstests EAs
 
 Before checking file capabilities, generic/093 calls _require_attrs
 security. This helper runs "setfattr -n security.xfstests". ksmbd

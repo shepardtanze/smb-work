@@ -1,7 +1,7 @@
-From e313a2d201f7350320662110bac7639838bc8b04 Mon Sep 17 00:00:00 2001
+From 992c0f99e0cd56dd7c02022513c60c3365f80d6e Mon Sep 17 00:00:00 2001
 From: Ze Tan <tanze@kylinos.cn>
 Date: Tue, 14 Jul 2026 16:38:43 +0800
-Subject: [PATCH 3/9] smb: client: support trusted xattrs over EAs
+Subject: [RFC PATCH 3/9] smb: client: support trusted xattrs over EAs
 
 generic/093 uses setfattr and getfattr to check that a write does not
 clear trusted.name. The CIFS client does not have a trusted xattr handler,
@@ -17,10 +17,10 @@ Signed-off-by: Ze Tan <tanze@kylinos.cn>
  2 files changed, 43 insertions(+), 1 deletion(-)
 
 diff --git a/fs/smb/client/smb2ops.c b/fs/smb/client/smb2ops.c
-index 5678ce2c3127..ecf9b73d25b6 100644
+index bfa089511b9b..e1f88a0c6842 100644
 --- a/fs/smb/client/smb2ops.c
 +++ b/fs/smb/client/smb2ops.c
-@@ -1045,6 +1045,10 @@ static int smb2_query_file_info(const unsigned int xid, struct cifs_tcon *tcon,
+@@ -1046,6 +1046,10 @@ static int smb2_query_file_info(const unsigned int xid, struct cifs_tcon *tcon,
  #ifdef CONFIG_CIFS_XATTR
  static bool cifs_passthrough(const char *name, size_t name_len)
  {

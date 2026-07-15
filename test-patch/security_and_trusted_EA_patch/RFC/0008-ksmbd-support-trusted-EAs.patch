@@ -1,7 +1,7 @@
-From e7ed4d0d83f8e83fc39eb6e9cb7ff7f159eb9629 Mon Sep 17 00:00:00 2001
+From 0c4a96d55e9abf81a8e78ec5e408240ab546554a Mon Sep 17 00:00:00 2001
 From: Ze Tan <tanze@kylinos.cn>
 Date: Tue, 14 Jul 2026 16:38:44 +0800
-Subject: [PATCH 8/9] ksmbd: support trusted EAs
+Subject: [RFC PATCH 8/9] ksmbd: support trusted EAs
 
 generic/093 uses "setfattr -n trusted.name" and getfattr to check that a
 write does not clear the trusted xattr. ksmbd stores the attribute as
