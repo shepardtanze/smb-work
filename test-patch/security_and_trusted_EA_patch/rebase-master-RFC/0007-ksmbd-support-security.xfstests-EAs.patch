@@ -1,0 +1,49 @@
+From afb1ef4700350de1a20f94082c906d75480184fb Mon Sep 17 00:00:00 2001
+From: Ze Tan <tanze@kylinos.cn>
+Date: Tue, 14 Jul 2026 16:38:44 +0800
+Subject: [PATCH 7/9] ksmbd: support security.xfstests EAs
+
+Before checking file capabilities, generic/093 calls _require_attrs
+security. This helper runs "setfattr -n security.xfstests". ksmbd
+recognizes only security.capability as a native security EA, so it stores
+the attribute as user.security.xfstests.
+
+Add security.xfstests as another exact security EA name. Use this name
+directly for set, get, and list operations. Do not support other security
+xattrs.
+
+Signed-off-by: Ze Tan <tanze@kylinos.cn>
+(cherry picked from commit d708c0e808715a8962109afc5627a7ceae00397a)
+---
+ fs/smb/server/smb2pdu.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/fs/smb/server/smb2pdu.c b/fs/smb/server/smb2pdu.c
+index 2159b45c80a6..da3d5c217577 100644
+--- a/fs/smb/server/smb2pdu.c
++++ b/fs/smb/server/smb2pdu.c
+@@ -2650,11 +2650,21 @@ static bool ksmbd_is_security_capability_ea_name(const char *name,
+ 	       !strncmp(name, XATTR_NAME_CAPS, name_len);
+ }
+ 
++static bool ksmbd_is_security_xfstests_ea_name(const char *name,
++					       size_t name_len)
++{
++	return name_len == sizeof(XATTR_SECURITY_PREFIX "xfstests") - 1 &&
++	       !strncmp(name, XATTR_SECURITY_PREFIX "xfstests", name_len);
++}
++
+ static bool ksmbd_is_posix_ea_name(const char *name, size_t name_len)
+ {
+ 	if (ksmbd_is_security_capability_ea_name(name, name_len))
+ 		return true;
+ 
++	if (ksmbd_is_security_xfstests_ea_name(name, name_len))
++		return true;
++
+ 	return false;
+ }
+ 
+-- 
+2.43.0
+

@@ -1,0 +1,57 @@
+From 232f83cc84541464b7930d9812bc691ef74b38f1 Mon Sep 17 00:00:00 2001
+From: Ze Tan <tanze@kylinos.cn>
+Date: Tue, 14 Jul 2026 16:38:42 +0800
+Subject: [PATCH 2/9] smb: client: support security.xfstests over EAs
+
+Before checking file capabilities, generic/093 calls _require_attrs
+security. This helper runs "setfattr -n security.xfstests" to check the
+security xattr namespace. The security handler supports only
+security.capability, so this command returns "Operation not supported".
+
+Add security.xfstests as another exact security EA name. Keep this name
+unchanged in EA lists. Continue to reject other security xattrs.
+
+Signed-off-by: Ze Tan <tanze@kylinos.cn>
+(cherry picked from commit 76b2c773216f7daa4b9d262796bbe009edb2b3f9)
+---
+ fs/smb/client/smb2ops.c | 4 ++++
+ fs/smb/client/xattr.c   | 7 ++++---
+ 2 files changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/fs/smb/client/smb2ops.c b/fs/smb/client/smb2ops.c
+index 38b95d3b66f5..266ddff5d8fa 100644
+--- a/fs/smb/client/smb2ops.c
++++ b/fs/smb/client/smb2ops.c
+@@ -1050,6 +1050,10 @@ static bool cifs_passthrough(const char *name, size_t name_len)
+ 	    !memcmp(name, XATTR_NAME_CAPS, name_len))
+ 		return true;
+ 
++	if (name_len == sizeof(XATTR_SECURITY_PREFIX "xfstests") - 1 &&
++	    !memcmp(name, XATTR_SECURITY_PREFIX "xfstests", name_len))
++		return true;
++
+ 	return false;
+ }
+ 
+diff --git a/fs/smb/client/xattr.c b/fs/smb/client/xattr.c
+index 8fa40593bc93..42db6920901e 100644
+--- a/fs/smb/client/xattr.c
++++ b/fs/smb/client/xattr.c
+@@ -49,10 +49,11 @@ static int cifs_build_ea_name(int xattr_flag, const char *name, char *ea_name,
+ 	switch (xattr_flag) {
+ 	case XATTR_SECURITY:
+ 		/*
+-		 * Only security.capability has native Linux security xattr
+-		 * semantics on POSIX-capable servers.
++		 * Only security.capability and the xfstests security namespace
++		 * probe are supported on POSIX-capable servers.
+ 		 */
+-		if (strcmp(name, XATTR_CAPS_SUFFIX))
++		if (strcmp(name, XATTR_CAPS_SUFFIX) &&
++		    strcmp(name, "xfstests"))
+ 			return -EOPNOTSUPP;
+ 		name_len = strlen(name);
+ 		if (ea_name_size <= XATTR_SECURITY_PREFIX_LEN ||
+-- 
+2.43.0
+

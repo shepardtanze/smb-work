@@ -66,8 +66,6 @@ follows:
 
 generic/093 passed.
 
-
-
 Ze Tan (9):
   smb: client: support security.capability over EAs
   smb: client: support security.xfstests over EAs
