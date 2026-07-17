@@ -1,7 +1,10 @@
-From e2e466ebb182d961f3bd773e4ae2415666803c2b Mon Sep 17 00:00:00 2001
+From 3d7836d5df4b9e65e834caf6f1ba3f1aa1bc59fd Mon Sep 17 00:00:00 2001
+Message-ID: <3d7836d5df4b9e65e834caf6f1ba3f1aa1bc59fd.1784258165.git.tanze@kylinos.cn>
+In-Reply-To: <cover.1784258165.git.tanze@kylinos.cn>
+References: <cover.1784258165.git.tanze@kylinos.cn>
 From: Ze Tan <tanze@kylinos.cn>
 Date: Tue, 14 Jul 2026 16:38:43 +0800
-Subject: [PATCH 3/9] smb: client: support trusted xattrs over EAs
+Subject: [RFC PATCH v2 3/9] smb: client: support trusted xattrs over EAs
 
 generic/093 uses setfattr and getfattr to check that a write does not
 clear trusted.name. The CIFS client does not have a trusted xattr handler,
@@ -11,14 +14,13 @@ Register a trusted xattr handler and build the complete trusted EA name
 for SET_INFO and QUERY_INFO. Keep the trusted prefix in EA lists.
 
 Signed-off-by: Ze Tan <tanze@kylinos.cn>
-(cherry picked from commit 992c0f99e0cd56dd7c02022513c60c3365f80d6e)
 ---
  fs/smb/client/smb2ops.c |  4 ++++
  fs/smb/client/xattr.c   | 40 +++++++++++++++++++++++++++++++++++++++-
  2 files changed, 43 insertions(+), 1 deletion(-)
 
 diff --git a/fs/smb/client/smb2ops.c b/fs/smb/client/smb2ops.c
-index 266ddff5d8fa..0b78c23f53df 100644
+index 9638fdad93cc..c3a18fafbfa0 100644
 --- a/fs/smb/client/smb2ops.c
 +++ b/fs/smb/client/smb2ops.c
 @@ -1046,6 +1046,10 @@ static int smb2_query_file_info(const unsigned int xid, struct cifs_tcon *tcon,

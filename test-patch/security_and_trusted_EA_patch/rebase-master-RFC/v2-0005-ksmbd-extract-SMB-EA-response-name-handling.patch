@@ -1,7 +1,10 @@
-From b4f43275eb089dd76bc06fbcd37eb05fe2c411a4 Mon Sep 17 00:00:00 2001
+From d5130383e2052ff81fe5c2280a732394ed471c72 Mon Sep 17 00:00:00 2001
+Message-ID: <d5130383e2052ff81fe5c2280a732394ed471c72.1784258165.git.tanze@kylinos.cn>
+In-Reply-To: <cover.1784258165.git.tanze@kylinos.cn>
+References: <cover.1784258165.git.tanze@kylinos.cn>
 From: Ze Tan <tanze@kylinos.cn>
 Date: Tue, 14 Jul 2026 16:38:43 +0800
-Subject: [PATCH 5/9] ksmbd: extract SMB EA response name handling
+Subject: [RFC PATCH v2 5/9] ksmbd: extract SMB EA response name handling
 
 smb2_get_ea() directly checks the user namespace, filters internal EAs,
 and removes the user prefix.
@@ -10,7 +13,6 @@ Extract ksmbd_is_visible_ea_name() and keep the existing behavior
 unchanged.
 
 Signed-off-by: Ze Tan <tanze@kylinos.cn>
-(cherry picked from commit 41f494411fddc3d11e4c9f92e0de62be0305e0f6)
 ---
  fs/smb/server/smb2pdu.c | 53 ++++++++++++++++++++++-------------------
  1 file changed, 29 insertions(+), 24 deletions(-)

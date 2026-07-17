@@ -1,7 +1,10 @@
-From 0ec85a7a64390a3cec15a3e274c1e559120932e3 Mon Sep 17 00:00:00 2001
+From 37f280818ac592b7e641d08325b4c10ae6bb7c99 Mon Sep 17 00:00:00 2001
+Message-ID: <37f280818ac592b7e641d08325b4c10ae6bb7c99.1784258165.git.tanze@kylinos.cn>
+In-Reply-To: <cover.1784258165.git.tanze@kylinos.cn>
+References: <cover.1784258165.git.tanze@kylinos.cn>
 From: Ze Tan <tanze@kylinos.cn>
 Date: Tue, 14 Jul 2026 16:38:45 +0800
-Subject: [PATCH 9/9] ksmbd: avoid self oplock breaks for EA opens
+Subject: [RFC PATCH v2 9/9] ksmbd: avoid self oplock breaks for EA opens
 
 generic/093 writes to a file after setcap sets security.capability. The
 CIFS client can reopen the file to query or update EAs while the same
@@ -12,7 +15,6 @@ Skip the oplock break for same-session EA or metadata opens. Keep the
 normal break when another session holds an oplock.
 
 Signed-off-by: Ze Tan <tanze@kylinos.cn>
-(cherry picked from commit 0c0cf477b2211e0a6ffa33234c5a249880fd9f98)
 ---
  fs/smb/server/oplock.c | 49 ++++++++++++++++++++++++++++++++++++++++++
  1 file changed, 49 insertions(+)

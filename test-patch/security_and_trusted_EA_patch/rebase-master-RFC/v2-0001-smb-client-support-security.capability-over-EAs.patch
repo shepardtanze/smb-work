@@ -1,7 +1,10 @@
-From 702c1df258f5385cc4f767cc74b519de8c5f8d55 Mon Sep 17 00:00:00 2001
+From 03e3fb98415d9e861588b165d78a22f18e14eb9c Mon Sep 17 00:00:00 2001
+Message-ID: <03e3fb98415d9e861588b165d78a22f18e14eb9c.1784258165.git.tanze@kylinos.cn>
+In-Reply-To: <cover.1784258165.git.tanze@kylinos.cn>
+References: <cover.1784258165.git.tanze@kylinos.cn>
 From: Ze Tan <tanze@kylinos.cn>
 Date: Tue, 14 Jul 2026 16:38:42 +0800
-Subject: [PATCH 1/9] smb: client: support security.capability over EAs
+Subject: [RFC PATCH v2 1/9] smb: client: support security.capability over EAs
 
 generic/093 uses setcap and getcap to check that a write clears the file
 capability. The CIFS client does not have a security xattr handler, so
@@ -12,14 +15,13 @@ SET_INFO and QUERY_INFO. Keep security.capability unchanged in EA lists.
 Reject other security xattrs.
 
 Signed-off-by: Ze Tan <tanze@kylinos.cn>
-(cherry picked from commit d235415b538d822c745f6a789340b86640780bfd)
 ---
  fs/smb/client/smb2ops.c | 26 ++++++++++++---
  fs/smb/client/xattr.c   | 70 ++++++++++++++++++++++++++++++++++++++---
  2 files changed, 87 insertions(+), 9 deletions(-)
 
 diff --git a/fs/smb/client/smb2ops.c b/fs/smb/client/smb2ops.c
-index 6bce44b171e4..38b95d3b66f5 100644
+index cbd51a08e97e..320742ec3ed8 100644
 --- a/fs/smb/client/smb2ops.c
 +++ b/fs/smb/client/smb2ops.c
 @@ -14,6 +14,7 @@

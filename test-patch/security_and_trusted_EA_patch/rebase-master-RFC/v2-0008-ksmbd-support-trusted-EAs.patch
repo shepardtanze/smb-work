@@ -1,7 +1,10 @@
-From 50f1cc14163b2e4ec452d41bf5a6abb5c03793b8 Mon Sep 17 00:00:00 2001
+From 44a69ab54011239b84fc4afcdaf7869863d052bb Mon Sep 17 00:00:00 2001
+Message-ID: <44a69ab54011239b84fc4afcdaf7869863d052bb.1784258165.git.tanze@kylinos.cn>
+In-Reply-To: <cover.1784258165.git.tanze@kylinos.cn>
+References: <cover.1784258165.git.tanze@kylinos.cn>
 From: Ze Tan <tanze@kylinos.cn>
 Date: Tue, 14 Jul 2026 16:38:44 +0800
-Subject: [PATCH 8/9] ksmbd: support trusted EAs
+Subject: [RFC PATCH v2 8/9] ksmbd: support trusted EAs
 
 generic/093 uses "setfattr -n trusted.name" and getfattr to check that a
 write does not clear the trusted xattr. ksmbd stores the attribute as
@@ -11,7 +14,6 @@ Map trusted names to the trusted xattr namespace for set, get, and list
 operations. Filter the internal POSIX ACL xattrs.
 
 Signed-off-by: Ze Tan <tanze@kylinos.cn>
-(cherry picked from commit 0c4a96d55e9abf81a8e78ec5e408240ab546554a)
 ---
  fs/smb/server/smb2pdu.c | 28 ++++++++++++++++++++++++++++
  1 file changed, 28 insertions(+)

@@ -1,7 +1,10 @@
-From 232f83cc84541464b7930d9812bc691ef74b38f1 Mon Sep 17 00:00:00 2001
+From a062d9ed54283285a74511b136c1b064d1c36ff7 Mon Sep 17 00:00:00 2001
+Message-ID: <a062d9ed54283285a74511b136c1b064d1c36ff7.1784258165.git.tanze@kylinos.cn>
+In-Reply-To: <cover.1784258165.git.tanze@kylinos.cn>
+References: <cover.1784258165.git.tanze@kylinos.cn>
 From: Ze Tan <tanze@kylinos.cn>
 Date: Tue, 14 Jul 2026 16:38:42 +0800
-Subject: [PATCH 2/9] smb: client: support security.xfstests over EAs
+Subject: [RFC PATCH v2 2/9] smb: client: support security.xfstests over EAs
 
 Before checking file capabilities, generic/093 calls _require_attrs
 security. This helper runs "setfattr -n security.xfstests" to check the
@@ -12,14 +15,13 @@ Add security.xfstests as another exact security EA name. Keep this name
 unchanged in EA lists. Continue to reject other security xattrs.
 
 Signed-off-by: Ze Tan <tanze@kylinos.cn>
-(cherry picked from commit 76b2c773216f7daa4b9d262796bbe009edb2b3f9)
 ---
  fs/smb/client/smb2ops.c | 4 ++++
  fs/smb/client/xattr.c   | 7 ++++---
  2 files changed, 8 insertions(+), 3 deletions(-)
 
 diff --git a/fs/smb/client/smb2ops.c b/fs/smb/client/smb2ops.c
-index 38b95d3b66f5..266ddff5d8fa 100644
+index 320742ec3ed8..9638fdad93cc 100644
 --- a/fs/smb/client/smb2ops.c
 +++ b/fs/smb/client/smb2ops.c
 @@ -1050,6 +1050,10 @@ static bool cifs_passthrough(const char *name, size_t name_len)

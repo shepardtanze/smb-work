@@ -1,7 +1,10 @@
-From 0134d303317028c128ab58229ec4f14c9c6b5adc Mon Sep 17 00:00:00 2001
+From 846fec356d359126e64ea64cd5f6e80ce7de4b61 Mon Sep 17 00:00:00 2001
+Message-ID: <846fec356d359126e64ea64cd5f6e80ce7de4b61.1784258165.git.tanze@kylinos.cn>
+In-Reply-To: <cover.1784258165.git.tanze@kylinos.cn>
+References: <cover.1784258165.git.tanze@kylinos.cn>
 From: Ze Tan <tanze@kylinos.cn>
 Date: Tue, 14 Jul 2026 16:38:44 +0800
-Subject: [PATCH 6/9] ksmbd: support security.capability EAs
+Subject: [RFC PATCH v2 6/9] ksmbd: support security.capability EAs
 
 generic/093 uses setcap and getcap to check that a write clears the file
 capability. ksmbd adds the user prefix to every SMB EA name, so setcap
@@ -13,7 +16,6 @@ same backing xattr name. Use this mapping for set, get, and list
 operations.
 
 Signed-off-by: Ze Tan <tanze@kylinos.cn>
-(cherry picked from commit 1887ead6fb7ed7ade4651c25656fce659674a705)
 ---
  fs/smb/server/smb2pdu.c | 77 +++++++++++++++++++++++++++++++----------
  1 file changed, 58 insertions(+), 19 deletions(-)
