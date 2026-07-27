@@ -1,0 +1,35 @@
+From 9a7587610d7fa1576f79e80e8703fb38b18b19b3 Mon Sep 17 00:00:00 2001
+From: Ze Tan <tanze@kylinos.cn>
+Date: Fri, 24 Jul 2026 11:21:04 +0800
+Subject: [PATCH 06/15] ksmbd: bound SMB2 EA name debug output
+
+SMB2 EA names carry an explicit length, but the debug print uses %s and
+therefore trusts the client-provided terminator. A malformed entry can
+make it read into the value or past the request buffer.
+
+Use EaNameLength as the printk field width.
+
+Signed-off-by: Ze Tan <tanze@kylinos.cn>
+---
+ fs/smb/server/smb2pdu.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/fs/smb/server/smb2pdu.c b/fs/smb/server/smb2pdu.c
+index e4d8efac99c5..46e8bfe8d821 100644
+--- a/fs/smb/server/smb2pdu.c
++++ b/fs/smb/server/smb2pdu.c
+@@ -2706,8 +2706,9 @@ static int smb2_set_ea(struct smb2_ea_info *eabuf, unsigned int buf_len,
+ 			goto next;
+ 
+ 		ksmbd_debug(SMB,
+-			    "name : <%s>, name_len : %u, value_len : %u, next : %u\n",
+-			    eabuf->name, eabuf->EaNameLength,
++			    "name : <%.*s>, name_len : %u, value_len : %u, next : %u\n",
++			    eabuf->EaNameLength, eabuf->name,
++			    eabuf->EaNameLength,
+ 			    le16_to_cpu(eabuf->EaValueLength),
+ 			    le32_to_cpu(eabuf->NextEntryOffset));
+ 
+-- 
+2.43.0
+

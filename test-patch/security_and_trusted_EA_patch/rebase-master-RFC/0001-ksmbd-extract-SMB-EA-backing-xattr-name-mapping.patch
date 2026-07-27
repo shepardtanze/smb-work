@@ -1,16 +1,12 @@
-From b35f52f2647bde20007243b4185344fc62622b3a Mon Sep 17 00:00:00 2001
-Message-ID: <b35f52f2647bde20007243b4185344fc62622b3a.1784258165.git.tanze@kylinos.cn>
-In-Reply-To: <cover.1784258165.git.tanze@kylinos.cn>
-References: <cover.1784258165.git.tanze@kylinos.cn>
+From 46ba1f2f3f809500eed61483dd5351a8ee89f87f Mon Sep 17 00:00:00 2001
 From: Ze Tan <tanze@kylinos.cn>
-Date: Tue, 14 Jul 2026 16:38:43 +0800
-Subject: [RFC PATCH v2 4/9] ksmbd: extract SMB EA backing xattr name mapping
+Date: Fri, 17 Jul 2026 19:21:24 +0800
+Subject: [PATCH 01/15] ksmbd: extract SMB EA backing xattr name mapping
 
-smb2_set_ea() directly adds the user prefix when it builds the backing
-xattr name. This mixes name conversion with the set operation.
-
-Extract ksmbd_map_ea_name_to_xattr() and keep the existing behavior
-unchanged.
+smb2_set_ea() currently prefixes each wire EA name with "user." before
+calling the VFS xattr helpers. Move this translation into
+ksmbd_map_ea_name_to_xattr() so native namespace mappings can be added
+without mixing them with EA request parsing.
 
 Signed-off-by: Ze Tan <tanze@kylinos.cn>
 ---
@@ -18,10 +14,10 @@ Signed-off-by: Ze Tan <tanze@kylinos.cn>
  1 file changed, 18 insertions(+), 9 deletions(-)
 
 diff --git a/fs/smb/server/smb2pdu.c b/fs/smb/server/smb2pdu.c
-index b73167785e87..dad3427a584e 100644
+index c1ba5e01aa7f..ec66359653b9 100644
 --- a/fs/smb/server/smb2pdu.c
 +++ b/fs/smb/server/smb2pdu.c
-@@ -2643,6 +2643,18 @@ static noinline int create_smb2_pipe(struct ksmbd_work *work)
+@@ -2642,6 +2642,18 @@ static noinline int create_smb2_pipe(struct ksmbd_work *work)
  	return err;
  }
  
@@ -40,7 +36,7 @@ index b73167785e87..dad3427a584e 100644
  /**
   * smb2_set_ea() - handler for setting extended attributes using set
   *		info command
-@@ -2658,7 +2670,7 @@ static int smb2_set_ea(struct smb2_ea_info *eabuf, unsigned int buf_len,
+@@ -2657,7 +2669,7 @@ static int smb2_set_ea(struct smb2_ea_info *eabuf, unsigned int buf_len,
  {
  	struct mnt_idmap *idmap = mnt_idmap(path->mnt);
  	char *attr_name = NULL, *value;
@@ -49,7 +45,7 @@ index b73167785e87..dad3427a584e 100644
  	unsigned int next = 0;
  
  	if (buf_len < sizeof(struct smb2_ea_info) + eabuf->EaNameLength + 1 +
-@@ -2679,24 +2691,21 @@ static int smb2_set_ea(struct smb2_ea_info *eabuf, unsigned int buf_len,
+@@ -2678,24 +2690,21 @@ static int smb2_set_ea(struct smb2_ea_info *eabuf, unsigned int buf_len,
  			    le16_to_cpu(eabuf->EaValueLength),
  			    le32_to_cpu(eabuf->NextEntryOffset));
  

@@ -1,0 +1,119 @@
+From 5d6f1e593fa3fbcf9b24678939d9f583a196a2c1 Mon Sep 17 00:00:00 2001
+From: Ze Tan <tanze@kylinos.cn>
+Date: Fri, 24 Jul 2026 11:22:39 +0800
+Subject: [PATCH 08/15] ksmbd: set security.capability on POSIX EA handles
+
+Map security.capability directly to its native backing xattr when the
+file handle was opened with an SMB3 POSIX create context. Ordinary EAs
+and non-POSIX handles retain the existing user namespace mapping.
+
+Pass the ksmbd_work and per-open POSIX state through smb2_set_ea() from
+both the CREATE and SET_INFO paths. This lets
+ksmbd_map_ea_name_to_xattr() apply the same root or admin authorization
+used by native queries.
+
+Return native mapping errors to the caller instead of replacing them
+with -EINVAL.
+
+Signed-off-by: Ze Tan <tanze@kylinos.cn>
+---
+ fs/smb/server/smb2pdu.c | 43 +++++++++++++++++++++++++++++++----------
+ 1 file changed, 33 insertions(+), 10 deletions(-)
+
+diff --git a/fs/smb/server/smb2pdu.c b/fs/smb/server/smb2pdu.c
+index c9af9e8d21e2..aaf91008578a 100644
+--- a/fs/smb/server/smb2pdu.c
++++ b/fs/smb/server/smb2pdu.c
+@@ -2679,9 +2679,27 @@ static int ksmbd_check_native_xattr(struct ksmbd_work *work,
+ 	return 1;
+ }
+ 
+-static int ksmbd_map_ea_name_to_xattr(const char *ea_name,
+-				      size_t ea_name_len, char *attr_name)
++static int ksmbd_map_ea_name_to_xattr(struct ksmbd_work *work,
++				      bool native_xattrs,
++				      const char *ea_name, size_t ea_name_len,
++				      char *attr_name)
+ {
++	int rc;
++
++	if (native_xattrs) {
++		rc = ksmbd_check_native_xattr(work, ea_name, ea_name_len);
++		if (rc < 0)
++			return rc;
++		if (rc) {
++			if (ea_name_len > XATTR_NAME_MAX)
++				return -EINVAL;
++
++			memcpy(attr_name, ea_name, ea_name_len);
++			attr_name[ea_name_len] = '\0';
++			return ea_name_len;
++		}
++	}
++
+ 	if (ea_name_len > XATTR_NAME_MAX - XATTR_USER_PREFIX_LEN)
+ 		return -EINVAL;
+ 
+@@ -2727,15 +2745,18 @@ static bool ksmbd_is_visible_ea_name(struct ksmbd_work *work,
+ /**
+  * smb2_set_ea() - handler for setting extended attributes using set
+  *		info command
++ * @work:	smb work containing session and tree information
+  * @eabuf:	set info command buffer
+  * @buf_len:	set info command buffer length
+  * @path:	dentry path for get ea
+  * @get_write:	get write access to a mount
++ * @native_xattrs:	the open included an SMB3 POSIX create context
+  *
+  * Return:	0 on success, otherwise error
+  */
+-static int smb2_set_ea(struct smb2_ea_info *eabuf, unsigned int buf_len,
+-		       const struct path *path, bool get_write)
++static int smb2_set_ea(struct ksmbd_work *work, struct smb2_ea_info *eabuf,
++		       unsigned int buf_len, const struct path *path,
++		       bool get_write, bool native_xattrs)
+ {
+ 	struct mnt_idmap *idmap = mnt_idmap(path->mnt);
+ 	char *attr_name = NULL, *value;
+@@ -2761,11 +2782,12 @@ static int smb2_set_ea(struct smb2_ea_info *eabuf, unsigned int buf_len,
+ 			    le16_to_cpu(eabuf->EaValueLength),
+ 			    le32_to_cpu(eabuf->NextEntryOffset));
+ 
+-		attr_name_len = ksmbd_map_ea_name_to_xattr(eabuf->name,
++		attr_name_len = ksmbd_map_ea_name_to_xattr(work, native_xattrs,
++							   eabuf->name,
+ 							   eabuf->EaNameLength,
+ 							   attr_name);
+ 		if (attr_name_len < 0) {
+-			rc = -EINVAL;
++			rc = attr_name_len;
+ 			break;
+ 		}
+ 
+@@ -3741,9 +3763,9 @@ int smb2_open(struct ksmbd_work *work)
+ 				goto err_out;
+ 			}
+ 
+-			rc = smb2_set_ea(&ea_buf->ea,
++			rc = smb2_set_ea(work, &ea_buf->ea,
+ 					 le32_to_cpu(ea_buf->ccontext.DataLength),
+-					 &path, true);
++					 &path, true, posix_ctxt);
+ 			if (rc == -EOPNOTSUPP)
+ 				rc = 0;
+ 			else if (rc)
+@@ -7131,8 +7153,9 @@ static int smb2_set_info_file(struct ksmbd_work *work, struct ksmbd_file *fp,
+ 		if (buf_len < sizeof(struct smb2_ea_info))
+ 			return -EMSGSIZE;
+ 
+-		return smb2_set_ea((struct smb2_ea_info *)buffer,
+-				   buf_len, &fp->filp->f_path, true);
++		return smb2_set_ea(work, (struct smb2_ea_info *)buffer,
++				   buf_len, &fp->filp->f_path, true,
++				   fp->is_posix_ctxt);
+ 	}
+ 	case FILE_POSITION_INFORMATION:
+ 	{
+-- 
+2.43.0
+

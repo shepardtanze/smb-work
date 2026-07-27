@@ -1,0 +1,43 @@
+From b8a9551421a83e539b9857d91697cfc20455d7b1 Mon Sep 17 00:00:00 2001
+From: Ze Tan <tanze@kylinos.cn>
+Date: Fri, 17 Jul 2026 19:27:56 +0800
+Subject: [PATCH 09/15] ksmbd: support security.xfstests on POSIX EA handles
+
+Add security.xfstests to the exact native xattr allowlist. It uses the
+same per-open POSIX activation, root or admin authorization, collision
+handling, and list filtering as security.capability.
+
+With the matching POSIX client support applied, the mapping can be
+checked with CIFS_MNT set on the client and SHARE_ROOT set on the
+server:
+
+  $ file="$CIFS_MNT/security-xfstests"
+  $ touch "$file"
+  $ setfattr -n security.xfstests -v attr "$file"
+  $ test "$(getfattr --only-values -n security.xfstests "$file")" = attr
+
+On the server:
+
+  $ file="$SHARE_ROOT/security-xfstests"
+  $ test "$(getfattr --only-values -n security.xfstests "$file")" = attr
+
+Signed-off-by: Ze Tan <tanze@kylinos.cn>
+---
+ fs/smb/server/smb2pdu.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/fs/smb/server/smb2pdu.c b/fs/smb/server/smb2pdu.c
+index aaf91008578a..b25e7fdfa908 100644
+--- a/fs/smb/server/smb2pdu.c
++++ b/fs/smb/server/smb2pdu.c
+@@ -2644,6 +2644,7 @@ static noinline int create_smb2_pipe(struct ksmbd_work *work)
+ 
+ static const char * const ksmbd_native_xattr_names[] = {
+ 	XATTR_NAME_CAPS,
++	XATTR_SECURITY_PREFIX "xfstests",
+ };
+ 
+ static bool ksmbd_native_xattrs_allowed(struct ksmbd_work *work)
+-- 
+2.43.0
+
