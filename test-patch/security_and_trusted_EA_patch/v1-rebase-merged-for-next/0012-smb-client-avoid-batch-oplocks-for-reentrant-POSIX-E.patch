@@ -1,0 +1,82 @@
+From 979509ff3edfbf2cecd94181474e6525a83d3baf Mon Sep 17 00:00:00 2001
+From: Ze Tan <tanze@kylinos.cn>
+Date: Fri, 17 Jul 2026 21:11:37 +0800
+Subject: [PATCH 12/15] smb: client: avoid batch oplocks for reentrant POSIX
+ EAs
+
+Native killpriv handling can reopen a path for EA queries or removal
+while a write handle is active. Without lease support, a batch oplock
+cannot identify the temporary EA open as the same caching owner and can
+deadlock while breaking against the blocked write path.
+
+Request no oplock for data-writing opens when POSIX extensions and
+xattrs are enabled but leasing is unavailable. Leave read opens,
+non-POSIX mounts, and servers with lease support unchanged.
+
+After applying the native EA patches, configure the server with oplocks
+enabled and SMB2 leases disabled. Use an SMB account that maps to root
+or an admin account on the server.
+
+Mount both the TEST and SCRATCH shares with SMB3 POSIX extensions and
+SID-encoded Unix IDs:
+
+  $ TEST_USER=fsgqa
+  $ TEST_UID=$(id -u "$TEST_USER")
+  $ TEST_GID=$(id -g "$TEST_USER")
+  $ MOUNT_OPTS="credentials=/path/to/credentials,vers=3.1.1"
+  $ MOUNT_OPTS="$MOUNT_OPTS,posix,idsfromsid"
+  $ MOUNT_OPTS="$MOUNT_OPTS,uid=$TEST_UID,gid=$TEST_GID"
+  $ export TEST_FS_MOUNT_OPTS="-o $MOUNT_OPTS"
+  $ export MOUNT_OPTIONS="-o $MOUNT_OPTS"
+
+Then run:
+
+  $ su root
+  $ XFSTESTS_DIR=/path/to/xfstests
+  $ cd "$XFSTESTS_DIR"
+  $ ./check generic/093
+
+Signed-off-by: Ze Tan <tanze@kylinos.cn>
+---
+ fs/smb/client/smb2file.c | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/fs/smb/client/smb2file.c b/fs/smb/client/smb2file.c
+index f35b6488d810..b07ff4570f56 100644
+--- a/fs/smb/client/smb2file.c
++++ b/fs/smb/client/smb2file.c
+@@ -160,6 +160,13 @@ int smb2_parse_symlink_response(struct cifs_sb_info *cifs_sb, const struct kvec
+ 					 cifs_sb);
+ }
+ 
++static bool smb2_open_writes_data(const struct cifs_open_parms *oparms)
++{
++	return oparms->desired_access &
++		(FILE_WRITE_DATA | FILE_APPEND_DATA |
++		 GENERIC_WRITE | GENERIC_ALL);
++}
++
+ int smb2_open_file(const unsigned int xid, struct cifs_open_parms *oparms,
+ 		   __u32 *oplock, void *buf)
+ {
+@@ -192,6 +199,17 @@ int smb2_open_file(const unsigned int xid, struct cifs_open_parms *oparms,
+ 		retry_without_read_attributes = true;
+ 	}
+ 	smb2_oplock = SMB2_OPLOCK_LEVEL_BATCH;
++	/*
++	 * A killpriv EA reopen without a lease can break this write's batch
++	 * oplock and deadlock against itself.
++	 */
++	if (IS_ENABLED(CONFIG_CIFS_XATTR) && oparms->cifs_sb &&
++	    !(cifs_sb_flags(oparms->cifs_sb) & CIFS_MOUNT_NO_XATTR) &&
++	    oparms->tcon->posix_extensions &&
++	    !(oparms->tcon->ses->server->capabilities &
++	      SMB2_GLOBAL_CAP_LEASING) &&
++	    smb2_open_writes_data(oparms))
++		smb2_oplock = SMB2_OPLOCK_LEVEL_NONE;
+ 
+ 	rc = SMB2_open(xid, oparms, smb2_path, &smb2_oplock, data, NULL, &err_iov,
+ 		       &err_buftype);
+-- 
+2.43.0
+

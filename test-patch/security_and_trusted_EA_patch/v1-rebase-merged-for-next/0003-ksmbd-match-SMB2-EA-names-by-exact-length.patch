@@ -1,0 +1,32 @@
+From 74c044bdd7b080665e94ca7cb33544eaee1f606c Mon Sep 17 00:00:00 2001
+From: Ze Tan <tanze@kylinos.cn>
+Date: Fri, 24 Jul 2026 09:54:22 +0800
+Subject: [PATCH 03/15] ksmbd: match SMB2 EA names by exact length
+
+smb2_get_ea() uses the requested name length as the comparison bound.
+That also matches a longer EA whose name starts with the requested
+bytes. Compare equal-length names so a request for "foo" cannot return
+the value of "foobar".
+
+Signed-off-by: Ze Tan <tanze@kylinos.cn>
+---
+ fs/smb/server/smb2pdu.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/fs/smb/server/smb2pdu.c b/fs/smb/server/smb2pdu.c
+index 74df7570233e..799f524de5fa 100644
+--- a/fs/smb/server/smb2pdu.c
++++ b/fs/smb/server/smb2pdu.c
+@@ -5339,7 +5339,8 @@ static int smb2_get_ea(struct ksmbd_work *work, struct ksmbd_file *fp,
+ 		name_len = visible_name_len;
+ 
+ 		if (req->InputBufferLength &&
+-		    strncmp(ea_name, ea_req->name, ea_req->EaNameLength))
++		    (name_len != ea_req->EaNameLength ||
++		     memcmp(ea_name, ea_req->name, name_len)))
+ 			continue;
+ 
+ 		ptr = eainfo->name + name_len + 1;
+-- 
+2.43.0
+

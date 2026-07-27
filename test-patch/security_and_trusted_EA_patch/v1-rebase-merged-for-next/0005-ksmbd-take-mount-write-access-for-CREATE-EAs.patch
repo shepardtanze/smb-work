@@ -1,0 +1,34 @@
+From 3d7299db9d64324df9f7581998c9ab722fcba169 Mon Sep 17 00:00:00 2001
+From: Ze Tan <tanze@kylinos.cn>
+Date: Fri, 17 Jul 2026 19:24:56 +0800
+Subject: [PATCH 05/15] ksmbd: take mount write access for CREATE EAs
+
+smb2_open() applies EAs from an SMB2 CREATE context after creating the
+path, but calls smb2_set_ea() without requesting mount write access.
+The SET_INFO path already requests it before the same VFS xattr
+operations.
+
+Pass get_write=true for CREATE-context EAs so setxattr and removexattr
+run with mount write access in both paths.
+
+Signed-off-by: Ze Tan <tanze@kylinos.cn>
+---
+ fs/smb/server/smb2pdu.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/fs/smb/server/smb2pdu.c b/fs/smb/server/smb2pdu.c
+index 226631b60aee..e3698421757a 100644
+--- a/fs/smb/server/smb2pdu.c
++++ b/fs/smb/server/smb2pdu.c
+@@ -3759,7 +3759,7 @@ int smb2_open(struct ksmbd_work *work)
+ 
+ 			rc = smb2_set_ea(&ea_buf->ea,
+ 					 le32_to_cpu(ea_buf->ccontext.DataLength),
+-					 &path, false);
++					 &path, true);
+ 			if (rc == -EOPNOTSUPP)
+ 				rc = 0;
+ 			else if (rc)
+-- 
+2.43.0
+

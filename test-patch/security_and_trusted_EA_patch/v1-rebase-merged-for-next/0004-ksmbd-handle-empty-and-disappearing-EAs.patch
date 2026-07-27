@@ -1,0 +1,58 @@
+From 5268686a5e3830f018ded755e099a28102db6381 Mon Sep 17 00:00:00 2001
+From: Ze Tan <tanze@kylinos.cn>
+Date: Fri, 17 Jul 2026 19:24:29 +0800
+Subject: [PATCH 04/15] ksmbd: handle empty and disappearing EAs
+
+A zero-length xattr value is valid, but smb2_get_ea() currently treats
+every non-positive result from ksmbd_vfs_getxattr() as a missing EA.
+Accept zero and encode an empty value in the response.
+
+An xattr can also disappear between listxattr() and getxattr(). Skip an
+entry that returns -ENODATA without consuming response space, while
+preserving other errors.
+
+Signed-off-by: Ze Tan <tanze@kylinos.cn>
+---
+ fs/smb/server/smb2pdu.c | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/fs/smb/server/smb2pdu.c b/fs/smb/server/smb2pdu.c
+index 799f524de5fa..226631b60aee 100644
+--- a/fs/smb/server/smb2pdu.c
++++ b/fs/smb/server/smb2pdu.c
+@@ -5344,24 +5344,26 @@ static int smb2_get_ea(struct ksmbd_work *work, struct ksmbd_file *fp,
+ 			continue;
+ 
+ 		ptr = eainfo->name + name_len + 1;
+-		buf_free_len -= (offsetof(struct smb2_ea_info, name) +
+-				name_len + 1);
+-		/* bailout if xattr can't fit in buf_free_len */
+ 		value_len = ksmbd_vfs_getxattr(idmap, path->dentry,
+ 					       name, &buf);
+-		if (value_len <= 0) {
+-			rc = -ENOENT;
++		if (value_len == -ENODATA)
++			continue;
++		if (value_len < 0) {
++			rc = value_len;
+ 			rsp->hdr.Status = STATUS_INVALID_HANDLE;
+ 			goto out;
+ 		}
+ 
++		buf_free_len -= (offsetof(struct smb2_ea_info, name) +
++				name_len + 1);
+ 		buf_free_len -= value_len;
+ 		if (buf_free_len < 0) {
+ 			kfree(buf);
+ 			break;
+ 		}
+ 
+-		memcpy(ptr, buf, value_len);
++		if (value_len)
++			memcpy(ptr, buf, value_len);
+ 		kfree(buf);
+ 
+ 		ptr += value_len;
+-- 
+2.43.0
+

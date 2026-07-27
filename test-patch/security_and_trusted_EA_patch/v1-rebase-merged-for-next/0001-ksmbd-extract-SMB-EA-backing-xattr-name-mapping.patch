@@ -1,0 +1,83 @@
+From aa0e9507a7a057471492559f4a86f623024e8063 Mon Sep 17 00:00:00 2001
+From: Ze Tan <tanze@kylinos.cn>
+Date: Fri, 17 Jul 2026 19:21:24 +0800
+Subject: [PATCH 01/15] ksmbd: extract SMB EA backing xattr name mapping
+
+smb2_set_ea() currently prefixes each wire EA name with "user." before
+calling the VFS xattr helpers. Move this translation into
+ksmbd_map_ea_name_to_xattr() so native namespace mappings can be added
+without mixing them with EA request parsing.
+
+Signed-off-by: Ze Tan <tanze@kylinos.cn>
+---
+ fs/smb/server/smb2pdu.c | 27 ++++++++++++++++++---------
+ 1 file changed, 18 insertions(+), 9 deletions(-)
+
+diff --git a/fs/smb/server/smb2pdu.c b/fs/smb/server/smb2pdu.c
+index add6194cd565..4ca003878702 100644
+--- a/fs/smb/server/smb2pdu.c
++++ b/fs/smb/server/smb2pdu.c
+@@ -2680,6 +2680,18 @@ static bool smb2_is_private_ea(const char *name, size_t name_len)
+ 	return false;
+ }
+ 
++static int ksmbd_map_ea_name_to_xattr(const char *ea_name,
++				      size_t ea_name_len, char *attr_name)
++{
++	if (ea_name_len > XATTR_NAME_MAX - XATTR_USER_PREFIX_LEN)
++		return -EINVAL;
++
++	memcpy(attr_name, XATTR_USER_PREFIX, XATTR_USER_PREFIX_LEN);
++	memcpy(&attr_name[XATTR_USER_PREFIX_LEN], ea_name, ea_name_len);
++	attr_name[XATTR_USER_PREFIX_LEN + ea_name_len] = '\0';
++	return XATTR_USER_PREFIX_LEN + ea_name_len;
++}
++
+ /**
+  * smb2_set_ea() - handler for setting extended attributes using set
+  *		info command
+@@ -2695,7 +2707,7 @@ static int smb2_set_ea(struct smb2_ea_info *eabuf, unsigned int buf_len,
+ {
+ 	struct mnt_idmap *idmap = mnt_idmap(path->mnt);
+ 	char *attr_name = NULL, *value;
+-	int rc = 0;
++	int rc = 0, attr_name_len;
+ 	unsigned int next = 0;
+ 
+ 	if (buf_len < sizeof(struct smb2_ea_info) + eabuf->EaNameLength + 1 +
+@@ -2716,8 +2728,10 @@ static int smb2_set_ea(struct smb2_ea_info *eabuf, unsigned int buf_len,
+ 			    le16_to_cpu(eabuf->EaValueLength),
+ 			    le32_to_cpu(eabuf->NextEntryOffset));
+ 
+-		if (eabuf->EaNameLength >
+-		    (XATTR_NAME_MAX - XATTR_USER_PREFIX_LEN)) {
++		attr_name_len = ksmbd_map_ea_name_to_xattr(eabuf->name,
++							   eabuf->EaNameLength,
++							   attr_name);
++		if (attr_name_len < 0) {
+ 			rc = -EINVAL;
+ 			break;
+ 		}
+@@ -2726,18 +2740,13 @@ static int smb2_set_ea(struct smb2_ea_info *eabuf, unsigned int buf_len,
+ 			break;
+ 		}
+ 
+-		memcpy(attr_name, XATTR_USER_PREFIX, XATTR_USER_PREFIX_LEN);
+-		memcpy(&attr_name[XATTR_USER_PREFIX_LEN], eabuf->name,
+-		       eabuf->EaNameLength);
+-		attr_name[XATTR_USER_PREFIX_LEN + eabuf->EaNameLength] = '\0';
+ 		value = (char *)&eabuf->name + eabuf->EaNameLength + 1;
+ 
+ 		if (!eabuf->EaValueLength) {
+ 			rc = ksmbd_vfs_casexattr_len(idmap,
+ 						     path->dentry,
+ 						     attr_name,
+-						     XATTR_USER_PREFIX_LEN +
+-						     eabuf->EaNameLength);
++						     attr_name_len);
+ 
+ 			/* delete the EA only when it exits */
+ 			if (rc > 0) {
+-- 
+2.43.0
+

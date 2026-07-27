@@ -1,0 +1,37 @@
+From e5641a5f53b0a410a7a278f7fbdbfc1b4b6849e5 Mon Sep 17 00:00:00 2001
+From: Ze Tan <tanze@kylinos.cn>
+Date: Fri, 17 Jul 2026 19:19:06 +0800
+Subject: [PATCH 14/15] smb: client: support security.xfstests on POSIX mounts
+
+Add security.xfstests to the exact native xattr table. The existing
+security handler can then send and receive it without a user prefix on
+POSIX mounts, reject the colliding user.security.xfstests spelling, and
+preserve the native name in listxattr output.
+
+The mapping can be checked from a POSIX-mounted client:
+
+  $ CIFS_MNT=/path/to/cifs-mount
+  $ file="$CIFS_MNT/security-xfstests"
+  $ touch "$file"
+  $ setfattr -n security.xfstests -v attr "$file"
+
+Signed-off-by: Ze Tan <tanze@kylinos.cn>
+---
+ fs/smb/client/xattr.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/fs/smb/client/xattr.c b/fs/smb/client/xattr.c
+index f975bccf98a5..59f6655a1b34 100644
+--- a/fs/smb/client/xattr.c
++++ b/fs/smb/client/xattr.c
+@@ -43,6 +43,7 @@ enum { XATTR_USER, XATTR_SECURITY,
+ 
+ static const char * const cifs_native_xattr_names[] = {
+ 	XATTR_NAME_CAPS,
++	XATTR_SECURITY_PREFIX "xfstests",
+ };
+ 
+ enum cifs_ea_name_type
+-- 
+2.43.0
+

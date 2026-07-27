@@ -1,0 +1,78 @@
+From e3fb957c1e877738c3acfd6a3dbadd1a6b2b8816 Mon Sep 17 00:00:00 2001
+From: Ze Tan <tanze@kylinos.cn>
+Date: Fri, 24 Jul 2026 15:33:54 +0800
+Subject: [PATCH 10/15] ksmbd: support trusted xattrs on POSIX EA handles
+
+Add trusted.* to the native prefix allowlist. Use the same per-open
+POSIX activation and root or admin authorization for set, remove, get,
+and list operations.
+
+Check the unsupported exact-name table before the prefix table so the
+XFS trusted.SGI_ACL_* xattrs remain inaccessible.
+
+Signed-off-by: Ze Tan <tanze@kylinos.cn>
+---
+ fs/smb/server/smb2pdu.c | 33 +++++++++++++++++++++++++++++++++
+ 1 file changed, 33 insertions(+)
+
+diff --git a/fs/smb/server/smb2pdu.c b/fs/smb/server/smb2pdu.c
+index e01a8ee1cc64..43e93d597e04 100644
+--- a/fs/smb/server/smb2pdu.c
++++ b/fs/smb/server/smb2pdu.c
+@@ -2685,6 +2685,15 @@ static const char * const ksmbd_native_xattr_names[] = {
+ 	XATTR_SECURITY_PREFIX "xfstests",
+ };
+ 
++static const char * const ksmbd_native_xattr_prefixes[] = {
++	XATTR_TRUSTED_PREFIX,
++};
++
++static const char * const ksmbd_unsupported_xattr_names[] = {
++	XATTR_TRUSTED_PREFIX "SGI_ACL_FILE",
++	XATTR_TRUSTED_PREFIX "SGI_ACL_DEFAULT",
++};
++
+ static bool ksmbd_native_xattrs_allowed(struct ksmbd_work *work)
+ {
+ 	return uid_eq(current_fsuid(), GLOBAL_ROOT_UID) ||
+@@ -2701,6 +2710,15 @@ static int ksmbd_check_native_xattr(struct ksmbd_work *work,
+ 	if (memchr(name, '\0', name_len))
+ 		return -EINVAL;
+ 
++	for (i = 0; i < ARRAY_SIZE(ksmbd_unsupported_xattr_names); i++) {
++		size_t xattr_len = strlen(ksmbd_unsupported_xattr_names[i]);
++
++		if (name_len == xattr_len &&
++		    !memcmp(name, ksmbd_unsupported_xattr_names[i],
++			    name_len))
++			return -EOPNOTSUPP;
++	}
++
+ 	for (i = 0; i < ARRAY_SIZE(ksmbd_native_xattr_names); i++) {
+ 		size_t xattr_len = strlen(ksmbd_native_xattr_names[i]);
+ 
+@@ -2711,6 +2729,21 @@ static int ksmbd_check_native_xattr(struct ksmbd_work *work,
+ 		}
+ 	}
+ 
++	if (!native) {
++		for (i = 0; i < ARRAY_SIZE(ksmbd_native_xattr_prefixes);
++		     i++) {
++			size_t prefix_len;
++
++			prefix_len = strlen(ksmbd_native_xattr_prefixes[i]);
++			if (name_len > prefix_len &&
++			    !memcmp(name, ksmbd_native_xattr_prefixes[i],
++				    prefix_len)) {
++				native = true;
++				break;
++			}
++		}
++	}
++
+ 	if (!native)
+ 		return 0;
+ 	if (!ksmbd_native_xattrs_allowed(work))
+-- 
+2.43.0
+
