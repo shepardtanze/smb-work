@@ -1,0 +1,43 @@
+From a5b995dde4af66fe928234480866d28d2e39556c Mon Sep 17 00:00:00 2001
+From: Ze Tan <tanze@kylinos.cn>
+Date: Tue, 4 Aug 2026 16:56:45 +0800
+Subject: [PATCH 3/5] ksmbd: roll back tree connects on response failure
+
+A successful tree connect is published in the session xarray before
+smb2_tree_connect() pins its response iov. If the iov array cannot be
+expanded, the handler returns an error but leaves the connected tree,
+its ID, share reference and counter active until session teardown.
+
+Mark a newly connected tree disconnected and remove it through the
+normal disconnect path when response setup fails.
+
+Signed-off-by: Ze Tan <tanze@kylinos.cn>
+---
+ fs/smb/server/smb2pdu.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/fs/smb/server/smb2pdu.c b/fs/smb/server/smb2pdu.c
+index 184501e08b29..8b263c08ecc7 100644
+--- a/fs/smb/server/smb2pdu.c
++++ b/fs/smb/server/smb2pdu.c
+@@ -2352,8 +2352,16 @@ int smb2_tree_connect(struct ksmbd_work *work)
+ 			cpu_to_le32(SMB2_SHAREFLAG_ACCESS_BASED_DIRECTORY_ENUM);
+ 
+ 	rc = ksmbd_iov_pin_rsp(work, rsp, sizeof(struct smb2_tree_connect_rsp));
+-	if (rc)
++	if (rc) {
++		if (status.ret == KSMBD_TREE_CONN_STATUS_OK) {
++			down_write(&sess->tree_conns_lock);
++			status.tree_conn->t_state = TREE_DISCONNECTED;
++			up_write(&sess->tree_conns_lock);
++			ksmbd_tree_conn_disconnect(sess, status.tree_conn);
++			status.tree_conn = NULL;
++		}
+ 		status.ret = KSMBD_TREE_CONN_STATUS_NOMEM;
++	}
+ 
+ 	if (!IS_ERR(treename))
+ 		kfree(treename);
+-- 
+2.43.0
+

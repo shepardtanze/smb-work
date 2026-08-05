@@ -1,0 +1,49 @@
+From 08c1502485098fb6baa8d59417a878e0a54fa94e Mon Sep 17 00:00:00 2001
+From: Ze Tan <tanze@kylinos.cn>
+Date: Tue, 4 Aug 2026 16:57:47 +0800
+Subject: [PATCH 5/5] ksmbd: clean up procfs on initialization failure
+
+ksmbd creates its procfs hierarchy before initializing the remaining
+server resources. If a later initialization step fails, the unwind path
+unregisters the control class but leaves proc entries and percpu counters
+behind. Module loading then fails and frees the code referenced by those
+proc entries.
+
+Route all failures after successful procfs setup through
+ksmbd_proc_cleanup().
+
+Signed-off-by: Ze Tan <tanze@kylinos.cn>
+---
+ fs/smb/server/server.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/fs/smb/server/server.c b/fs/smb/server/server.c
+index 8d8e857b1d57..3f44fe4aee84 100644
+--- a/fs/smb/server/server.c
++++ b/fs/smb/server/server.c
+@@ -617,11 +617,11 @@ static int __init ksmbd_server_init(void)
+ 
+ 	ret = server_conf_init();
+ 	if (ret)
+-		goto err_unregister;
++		goto err_proc_cleanup;
+ 
+ 	ret = ksmbd_work_pool_init();
+ 	if (ret)
+-		goto err_unregister;
++		goto err_proc_cleanup;
+ 
+ 	ret = ksmbd_init_file_cache();
+ 	if (ret)
+@@ -667,6 +667,8 @@ static int __init ksmbd_server_init(void)
+ 	ksmbd_exit_file_cache();
+ err_destroy_work_pools:
+ 	ksmbd_work_pool_destroy();
++err_proc_cleanup:
++	ksmbd_proc_cleanup();
+ err_unregister:
+ 	class_unregister(&ksmbd_control_class);
+ 
+-- 
+2.43.0
+
