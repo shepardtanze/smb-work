@@ -1,4 +1,4 @@
-From 90b6481477b7077ab49c851ac10ca410ca334316 Mon Sep 17 00:00:00 2001
+From ca8461c5b17246506be4829732c4192c07c9446f Mon Sep 17 00:00:00 2001
 From: Ze Tan <tanze@kylinos.cn>
 Date: Mon, 3 Aug 2026 15:40:10 +0800
 Subject: [PATCH 2/3] smb/client: preserve open info type across compound

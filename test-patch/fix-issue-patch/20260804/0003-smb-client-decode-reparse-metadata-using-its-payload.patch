@@ -1,4 +1,4 @@
-From 391b5c5f7f776de70a352d878df4f1ede1ea54a7 Mon Sep 17 00:00:00 2001
+From 7b52e561833274ffb64fc48d49a5da84fb9d90ae Mon Sep 17 00:00:00 2001
 From: Ze Tan <tanze@kylinos.cn>
 Date: Mon, 3 Aug 2026 15:42:08 +0800
 Subject: [PATCH 3/3] smb/client: decode reparse metadata using its payload
@@ -13,6 +13,27 @@ The metadata can instead come from an SMB2 CREATE response on a POSIX
 mount, or from a POSIX query while processing a reparse point. In those
 cases the mount mode and hard-coded fi accesses select the wrong union
 member.
+
+See the procedures below:
+
+  cifs_nt_open
+    smb2_open_file
+      SMB2_open
+        data->fi = SMB2 CREATE response
+        data->contains_posix_file_info = false
+    cifs_get_inode_info
+      reparse_info_to_fattr
+        if (tcon->posix_extensions) // true
+          smb311_posix_info_to_fattr
+            data->posix_fi // wrong union member
+
+  smb311_posix_get_fattr
+    smb2_query_path_info
+      smb2_compound_op
+        data->posix_fi = SMB3 POSIX query response
+        data->contains_posix_file_info = true
+    reparse_info_to_fattr
+      data->fi.Attributes // wrong union member
 
 Add a common DOS attribute accessor and use contains_posix_file_info
 both for attribute reads and for the final fattr conversion.
