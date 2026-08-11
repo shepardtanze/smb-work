@@ -1,16 +1,23 @@
-From 37a3bfa7117621cc892a83bfc5ff2dd2bd2b7c00 Mon Sep 17 00:00:00 2001
+From 21215636ddab13f5dbcda9fef548c83c6c9557e2 Mon Sep 17 00:00:00 2001
 From: Ze Tan <tanze@kylinos.cn>
 Date: Mon, 10 Aug 2026 16:13:27 +0800
-Subject: [PATCH 3/3] smb/server: abort initialization when proc entry creation
- fails
+Subject: [PATCH 3/3] smb/server: fix missing error checks in
+ ksmbd_server_init()
 
-ksmbd_server_init() ignores errors from create_proc_sessions() and
-create_proc_shares(). If either proc entry allocation fails, module
-initialization continues with an incomplete procfs hierarchy.
+See the procedure below:
 
-Propagate both errors through the existing procfs cleanup path so that
-created entries and per-CPU counters are released before module
-initialization fails.
+  ksmbd_server_init
+    create_proc_sessions
+      ksmbd_proc_create // fail
+      return -ENOMEM
+    // do not check return value
+    create_proc_shares
+      ksmbd_proc_create // fail
+      return -ENOMEM
+    // do not check return value
+
+Check the return values and use the existing procfs cleanup path on
+failure.
 
 Signed-off-by: Ze Tan <tanze@kylinos.cn>
 ---

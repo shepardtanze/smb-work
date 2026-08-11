@@ -1,15 +1,21 @@
-From c99df74f4a3206521d7abe766fff30d8349e97dd Mon Sep 17 00:00:00 2001
+From 9c1fdc67ec5cc8d6a31b56881c25b0ed024a2c57 Mon Sep 17 00:00:00 2001
 From: Ze Tan <tanze@kylinos.cn>
 Date: Tue, 4 Aug 2026 16:56:45 +0800
-Subject: [PATCH 2/3] ksmbd: roll back tree connects on response failure
+Subject: [PATCH 2/3] smb/server: fix tree connection leak in
+ smb2_tree_connect()
 
-A successful tree connect is published in the session xarray before
-smb2_tree_connect() pins its response iov. If the iov array cannot be
-expanded, the handler returns an error but leaves the connected tree,
-its ID, share reference and counter active until session teardown.
+See the procedure below:
 
-Mark a newly connected tree disconnected and remove it through the
-normal disconnect path when response setup fails.
+  smb2_tree_connect
+    ksmbd_tree_conn_connect
+      xa_store(&sess->tree_conns, tree_conn->id, tree_conn)
+      ksmbd_counter_inc(KSMBD_COUNTER_TREE_CONNS)
+      ksmbd_share_tree_conn_inc(sc)
+    ksmbd_iov_pin_rsp // fail
+    status.ret = KSMBD_TREE_CONN_STATUS_NOMEM
+    // do not disconnect tree_conn
+
+Disconnect the new tree connection if ksmbd_iov_pin_rsp() fails.
 
 Signed-off-by: Ze Tan <tanze@kylinos.cn>
 ---
