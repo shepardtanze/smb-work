@@ -1,0 +1,35 @@
+From b68512bd520ccdc6be10777c95bfa728768a9b97 Mon Sep 17 00:00:00 2001
+Message-ID: <b68512bd520ccdc6be10777c95bfa728768a9b97.1786693382.git.tanze@kylinos.cn>
+In-Reply-To: <cover.1786693382.git.tanze@kylinos.cn>
+References: <cover.1786693382.git.tanze@kylinos.cn>
+From: Ze Tan <tanze@kylinos.cn>
+Date: Mon, 10 Aug 2026 16:13:27 +0800
+Subject: [PATCH v2 3/3] smb/server: warn if create_proc_shares() fails
+
+Print a warning if the shares procfs entry cannot be created.
+
+Fixes: b02a77726ed0 ("ksmbd: add procfs monitoring for active shares")
+Signed-off-by: Ze Tan <tanze@kylinos.cn>
+Reviewed-by: ChenXiaoSong <chenxiaosong@kylinos.cn>
+---
+ fs/smb/server/server.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/fs/smb/server/server.c b/fs/smb/server/server.c
+index 6c393922fa45..6b1c42c7dda4 100644
+--- a/fs/smb/server/server.c
++++ b/fs/smb/server/server.c
+@@ -632,7 +632,9 @@ static int __init ksmbd_server_init(void)
+ 	if (ret)
+ 		pr_warn("Unable to create sessions procfs entry: %d\n", ret);
+ 
+-	create_proc_shares();
++	ret = create_proc_shares();
++	if (ret)
++		pr_warn("Unable to create shares procfs entry: %d\n", ret);
+ 
+ 	ksmbd_server_tcp_callbacks_init();
+ 
+-- 
+2.43.0
+
