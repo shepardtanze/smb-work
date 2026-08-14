@@ -2,7 +2,7 @@ From cceae3ab0e87ecfc270a8ab3d0958aa44ad93955 Mon Sep 17 00:00:00 2001
 Message-ID: <cover.1786700182.git.tanze@kylinos.cn>
 From: Ze Tan <tanze@kylinos.cn>
 Date: Fri, 14 Aug 2026 17:36:22 +0800
-Subject: [PATCH v2 0/7] fix some bugs
+Subject: [PATCH v2 0/7] smb/server: fix some bugs
 
 Ze Tan (7):
   smb/server: fix session leak in ksmbd_session_register()
