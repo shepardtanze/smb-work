@@ -1,0 +1,43 @@
+From 0c19cb0c00df208189b6371df7c9c09c49ef12cb Mon Sep 17 00:00:00 2001
+Message-ID: <0c19cb0c00df208189b6371df7c9c09c49ef12cb.1786700182.git.tanze@kylinos.cn>
+In-Reply-To: <cover.1786700182.git.tanze@kylinos.cn>
+References: <cover.1786700182.git.tanze@kylinos.cn>
+From: Ze Tan <tanze@kylinos.cn>
+Date: Fri, 14 Aug 2026 16:53:44 +0800
+Subject: [PATCH v2 5/7] smb/server: warn if create_proc_clients() fails
+
+Print a warning if the clients procfs entry cannot be created.
+
+Fixes: b38f99c1217a ("ksmbd: add procfs interface for runtime monitoring and statistics")
+Signed-off-by: Ze Tan <tanze@kylinos.cn>
+---
+ fs/smb/server/connection.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/fs/smb/server/connection.c b/fs/smb/server/connection.c
+index e225aca67686..bdd5f89cfa70 100644
+--- a/fs/smb/server/connection.c
++++ b/fs/smb/server/connection.c
+@@ -730,7 +730,7 @@ void ksmbd_conn_r_count_dec(struct ksmbd_conn *conn)
+ 
+ int ksmbd_conn_transport_init(void)
+ {
+-	int ret;
++	int ret, proc_ret;
+ 
+ 	mutex_lock(&init_lock);
+ 	ret = ksmbd_tcp_init();
+@@ -746,7 +746,9 @@ int ksmbd_conn_transport_init(void)
+ 	}
+ out:
+ 	mutex_unlock(&init_lock);
+-	create_proc_clients();
++	proc_ret = create_proc_clients();
++	if (proc_ret)
++		pr_warn("Unable to create clients procfs entry: %d\n", proc_ret);
+ 	return ret;
+ }
+ 
+-- 
+2.43.0
+

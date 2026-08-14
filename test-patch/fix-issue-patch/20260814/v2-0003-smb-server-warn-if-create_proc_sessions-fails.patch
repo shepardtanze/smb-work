@@ -1,10 +1,10 @@
-From 97c0b0b938a9d749f795501985b3ce2a2339b430 Mon Sep 17 00:00:00 2001
-Message-ID: <97c0b0b938a9d749f795501985b3ce2a2339b430.1786693382.git.tanze@kylinos.cn>
-In-Reply-To: <cover.1786693382.git.tanze@kylinos.cn>
-References: <cover.1786693382.git.tanze@kylinos.cn>
+From 8d07dc2aea39cb90d8aa148af37753c297c175d4 Mon Sep 17 00:00:00 2001
+Message-ID: <8d07dc2aea39cb90d8aa148af37753c297c175d4.1786700182.git.tanze@kylinos.cn>
+In-Reply-To: <cover.1786700182.git.tanze@kylinos.cn>
+References: <cover.1786700182.git.tanze@kylinos.cn>
 From: Ze Tan <tanze@kylinos.cn>
 Date: Mon, 10 Aug 2026 16:13:27 +0800
-Subject: [PATCH v2 2/3] smb/server: warn if create_proc_sessions() fails
+Subject: [PATCH v2 3/7] smb/server: warn if create_proc_sessions() fails
 
 Print a warning if the sessions procfs entry cannot be created.
 

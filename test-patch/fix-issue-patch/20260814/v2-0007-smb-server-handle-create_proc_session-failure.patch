@@ -1,0 +1,45 @@
+From cceae3ab0e87ecfc270a8ab3d0958aa44ad93955 Mon Sep 17 00:00:00 2001
+Message-ID: <cceae3ab0e87ecfc270a8ab3d0958aa44ad93955.1786700182.git.tanze@kylinos.cn>
+In-Reply-To: <cover.1786700182.git.tanze@kylinos.cn>
+References: <cover.1786700182.git.tanze@kylinos.cn>
+From: Ze Tan <tanze@kylinos.cn>
+Date: Fri, 14 Aug 2026 16:54:17 +0800
+Subject: [PATCH v2 7/7] smb/server: handle create_proc_session() failure
+
+Return an error from create_proc_session() and print a ratelimited warning
+if a session procfs entry cannot be created.
+
+Fixes: b38f99c1217a ("ksmbd: add procfs interface for runtime monitoring and statistics")
+Signed-off-by: Ze Tan <tanze@kylinos.cn>
+---
+ fs/smb/server/mgmt/user_session.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/fs/smb/server/mgmt/user_session.c b/fs/smb/server/mgmt/user_session.c
+index adde0119326b..ead07615a329 100644
+--- a/fs/smb/server/mgmt/user_session.c
++++ b/fs/smb/server/mgmt/user_session.c
+@@ -204,6 +204,8 @@ static int create_proc_session(struct ksmbd_session *sess)
+ 	snprintf(name, sizeof(name), "sessions/%llu", sess->id);
+ 	sess->proc_entry = ksmbd_proc_create(name,
+ 					     show_proc_session, sess);
++	if (!sess->proc_entry)
++		return -ENOMEM;
+ 	return 0;
+ }
+ 
+@@ -740,7 +742,10 @@ static struct ksmbd_session *__session_create(int protocol)
+ 	ksmbd_counter_inc(KSMBD_COUNTER_SESSIONS);
+ 	up_write(&sessions_table_lock);
+ 
+-	create_proc_session(sess);
++	ret = create_proc_session(sess);
++	if (ret)
++		pr_warn_ratelimited("Unable to create session %llu procfs entry: %d\n",
++				    sess->id, ret);
+ 	return sess;
+ 
+ error:
+-- 
+2.43.0
+

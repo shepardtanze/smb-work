@@ -1,17 +1,23 @@
-From b68512bd520ccdc6be10777c95bfa728768a9b97 Mon Sep 17 00:00:00 2001
-Message-ID: <cover.1786693382.git.tanze@kylinos.cn>
+From cceae3ab0e87ecfc270a8ab3d0958aa44ad93955 Mon Sep 17 00:00:00 2001
+Message-ID: <cover.1786700182.git.tanze@kylinos.cn>
 From: Ze Tan <tanze@kylinos.cn>
-Date: Fri, 14 Aug 2026 15:43:02 +0800
-Subject: [PATCH v2 0/3] smb/server: fix some bugs
+Date: Fri, 14 Aug 2026 17:36:22 +0800
+Subject: [PATCH v2 0/7] fix some bugs
 
-Ze Tan (3):
+Ze Tan (7):
   smb/server: fix session leak in ksmbd_session_register()
+  smb/server: fix session counter on session removal
   smb/server: warn if create_proc_sessions() fails
   smb/server: warn if create_proc_shares() fails
+  smb/server: warn if create_proc_clients() fails
+  smb/server: handle create_proc_files() failure
+  smb/server: handle create_proc_session() failure
 
- fs/smb/server/mgmt/user_session.c | 13 ++++++++++++-
- fs/smb/server/server.c            |  9 +++++++--
- 2 files changed, 19 insertions(+), 3 deletions(-)
+ fs/smb/server/connection.c        |  6 ++++--
+ fs/smb/server/mgmt/user_session.c | 34 +++++++++++++++++++++++++------
+ fs/smb/server/server.c            |  9 ++++++--
+ fs/smb/server/vfs_cache.c         |  9 ++++++--
+ 4 files changed, 46 insertions(+), 12 deletions(-)
 
 
 base-commit: 3079f85137436b1635c9e060d269cf3537f1e0a8

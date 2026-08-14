@@ -1,0 +1,47 @@
+From ab5fd162df7459e3bc4a017dbd5e91b4243b4a2d Mon Sep 17 00:00:00 2001
+Message-ID: <ab5fd162df7459e3bc4a017dbd5e91b4243b4a2d.1786700182.git.tanze@kylinos.cn>
+In-Reply-To: <cover.1786700182.git.tanze@kylinos.cn>
+References: <cover.1786700182.git.tanze@kylinos.cn>
+From: Ze Tan <tanze@kylinos.cn>
+Date: Fri, 14 Aug 2026 16:53:54 +0800
+Subject: [PATCH v2 6/7] smb/server: handle create_proc_files() failure
+
+Return an error from create_proc_files() and print a warning if the files
+procfs entry cannot be created.
+
+Fixes: b38f99c1217a ("ksmbd: add procfs interface for runtime monitoring and statistics")
+Signed-off-by: Ze Tan <tanze@kylinos.cn>
+---
+ fs/smb/server/vfs_cache.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/fs/smb/server/vfs_cache.c b/fs/smb/server/vfs_cache.c
+index 972e8985a503..8797c9c6c0ff 100644
+--- a/fs/smb/server/vfs_cache.c
++++ b/fs/smb/server/vfs_cache.c
+@@ -180,7 +180,8 @@ static int proc_show_files(struct seq_file *m, void *v)
+ 
+ static int create_proc_files(void)
+ {
+-	ksmbd_proc_create("files", proc_show_files, NULL);
++	if (!ksmbd_proc_create("files", proc_show_files, NULL))
++		return -ENOMEM;
+ 	return 0;
+ }
+ #else
+@@ -1829,7 +1830,11 @@ void ksmbd_close_session_fds(struct ksmbd_work *work)
+ 
+ int ksmbd_init_global_file_table(void)
+ {
+-	create_proc_files();
++	int ret;
++
++	ret = create_proc_files();
++	if (ret)
++		pr_warn("Unable to create files procfs entry: %d\n", ret);
+ 	return ksmbd_init_file_table(&global_ft);
+ }
+ 
+-- 
+2.43.0
+
