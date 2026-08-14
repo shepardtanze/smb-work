@@ -2,7 +2,7 @@ From 82181632662a23ecc9a3b8b2321982071037a288 Mon Sep 17 00:00:00 2001
 Message-ID: <cover.1786674373.git.tanze@kylinos.cn>
 From: Ze Tan <tanze@kylinos.cn>
 Date: Fri, 14 Aug 2026 10:26:13 +0800
-Subject: [PATCH 0/3] fix some bugs
+Subject: [PATCH 0/3] smb/server: fix some bugs
 
 Ze Tan (3):
   smb/server: fix tree connection leak in smb2_tree_connect()
