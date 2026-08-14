@@ -1,7 +1,7 @@
-From 9c1fdc67ec5cc8d6a31b56881c25b0ed024a2c57 Mon Sep 17 00:00:00 2001
+From f4c3524d0ce5a18dbae3712b3a94adc61401c59c Mon Sep 17 00:00:00 2001
 From: Ze Tan <tanze@kylinos.cn>
 Date: Tue, 4 Aug 2026 16:56:45 +0800
-Subject: [PATCH 2/3] smb/server: fix tree connection leak in
+Subject: [PATCH 2/4] smb/server: fix tree connection leak in
  smb2_tree_connect()
 
 See the procedure below:
@@ -17,16 +17,18 @@ See the procedure below:
 
 Disconnect the new tree connection if ksmbd_iov_pin_rsp() fails.
 
+Fixes: e2b76ab8b5c9 ("ksmbd: add support for read compound")
 Signed-off-by: Ze Tan <tanze@kylinos.cn>
+Reviewed-by: ChenXiaoSong <chenxiaosong@kylinos.cn>
 ---
  fs/smb/server/smb2pdu.c | 10 +++++++++-
  1 file changed, 9 insertions(+), 1 deletion(-)
 
 diff --git a/fs/smb/server/smb2pdu.c b/fs/smb/server/smb2pdu.c
-index a7bfa6dbcfd5..d5b38513536f 100644
+index 51dec803f09b..e80c629dc231 100644
 --- a/fs/smb/server/smb2pdu.c
 +++ b/fs/smb/server/smb2pdu.c
-@@ -2691,8 +2691,16 @@ int smb2_tree_connect(struct ksmbd_work *work)
+@@ -2688,8 +2688,16 @@ int smb2_tree_connect(struct ksmbd_work *work)
  			cpu_to_le32(SMB2_SHAREFLAG_ACCESS_BASED_DIRECTORY_ENUM);
  
  	rc = ksmbd_iov_pin_rsp(work, rsp, sizeof(struct smb2_tree_connect_rsp));
@@ -45,5 +47,5 @@ index a7bfa6dbcfd5..d5b38513536f 100644
  	if (!IS_ERR(treename))
  		kfree(treename);
 -- 
-2.43.0
+2.55.0
 
